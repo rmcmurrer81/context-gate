@@ -134,26 +134,52 @@ $AppUrl = "http://127.0.0.1:8501"
 $HealthUrl = "$AppUrl/api/health"
 
 function Test-ContextGateWebConsole {
+    $Response = $null
     try {
-        $Response = Invoke-WebRequest -Uri $HealthUrl -Method Get -UseBasicParsing -TimeoutSec 2
-        if ($Response.StatusCode -lt 200 -or $Response.StatusCode -ge 300) {
+        # Keep this module-free because hidden Windows PowerShell shortcuts do
+        # not always auto-load Microsoft.PowerShell.Utility.
+        $Request = [System.Net.HttpWebRequest]::Create($HealthUrl)
+        $Request.Method = "GET"
+        $Request.Timeout = 2000
+        $Request.ReadWriteTimeout = 2000
+        $Request.Proxy = $null
+        $Response = $Request.GetResponse()
+        $StatusCode = [int]$Response.StatusCode
+        if ($StatusCode -lt 200 -or $StatusCode -ge 300) {
             return $false
         }
-        $Payload = $Response.Content | ConvertFrom-Json -ErrorAction Stop
+
+        $Reader = [System.IO.StreamReader]::new($Response.GetResponseStream())
+        try {
+            $Content = $Reader.ReadToEnd()
+        } finally {
+            $Reader.Dispose()
+        }
         return (
-            $Payload.service -eq "ContextGate" -and
-            $Payload.status -eq "ok"
+            $Content -match '"service"\s*:\s*"ContextGate"' -and
+            $Content -match '"status"\s*:\s*"ok"'
         )
     } catch {
         return $false
+    } finally {
+        if ($null -ne $Response) {
+            $Response.Dispose()
+        }
     }
+}
+
+function Open-ContextGateBrowser {
+    $StartInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $StartInfo.FileName = $AppUrl
+    $StartInfo.UseShellExecute = $true
+    [System.Diagnostics.Process]::Start($StartInfo) | Out-Null
 }
 
 switch ($Task) {
     "app" {
         if (Test-ContextGateWebConsole) {
             Write-Host "ContextGate is already running at $AppUrl"
-            Start-Process -FilePath $AppUrl
+            Open-ContextGateBrowser
             exit 0
         }
         & $VirtualPython -m context_gate.web_console
