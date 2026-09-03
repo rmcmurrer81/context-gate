@@ -6,15 +6,32 @@ build-backend = "setuptools.build_meta"
 name = "context-gate"
 version = "0.1.0"
 description = "Real-time evidence and approval control for AI agents"
+readme = "README.md"
 requires-python = ">=3.11"
+keywords = ["ai-agents", "confluent", "evidence", "human-in-the-loop", "streaming"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
 dependencies = [
   "pydantic>=2.11,<3",
 ]
 
 [project.optional-dependencies]
-demo = ["streamlit>=1.48,<2"]
+demo = [
+  "streamlit>=1.48,<2",
+  "pypdf>=6,<7",
+  "python-docx>=1.2,<2",
+]
 test = ["pytest>=8.4,<9"]
 confluent = ["confluent-kafka>=2.11,<3"]
+
+[project.urls]
+Repository = "https://github.com/rmcmurrer81/context-gate"
 
 [tool.pytest.ini_options]
 addopts = "-q"
@@ -22,3 +39,6 @@ testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 include = ["context_gate*"]
+
+[tool.setuptools.package-data]
+context_gate = ["data/*.json"]

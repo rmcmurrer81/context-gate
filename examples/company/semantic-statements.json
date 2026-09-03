@@ -1,0 +1,50 @@
+[
+  {
+    "evidence_id": "fictional-email-delta-001",
+    "category": "event",
+    "identity": {
+      "event_name": "Atlas Community Forum",
+      "event_date": "2030-05-18"
+    },
+    "source_type": "official_email",
+    "evidence_reference": "fictional://mailbox/official/delta-001",
+    "text": "78 more people are confirmed for the Atlas Community Forum.",
+    "observed_at": "2030-04-02T14:00:00Z"
+  },
+  {
+    "evidence_id": "fictional-email-total-001",
+    "category": "event",
+    "identity": {
+      "event_name": "Atlas Community Forum",
+      "event_date": "2030-05-18"
+    },
+    "source_type": "official_email",
+    "evidence_reference": "fictional://mailbox/official/total-001",
+    "text": "78 people are going to the Atlas Community Forum.",
+    "observed_at": "2030-04-03T14:00:00Z"
+  },
+  {
+    "evidence_id": "fictional-email-identity-mismatch-001",
+    "category": "event",
+    "identity": {
+      "event_name": "Harbor Innovation Meetup",
+      "event_date": "2030-05-18"
+    },
+    "source_type": "official_email",
+    "evidence_reference": "fictional://mailbox/official/mismatch-001",
+    "text": "78 people are confirmed for the Harbor Innovation Meetup.",
+    "observed_at": "2030-04-04T14:00:00Z"
+  },
+  {
+    "evidence_id": "fictional-email-ambiguous-001",
+    "category": "event",
+    "identity": {
+      "event_name": "Atlas Community Forum",
+      "event_date": "2030-05-18"
+    },
+    "source_type": "official_email",
+    "evidence_reference": "fictional://mailbox/official/ambiguous-001",
+    "text": "The latest note mentions 78 people for the Atlas Community Forum.",
+    "observed_at": "2030-04-05T14:00:00Z"
+  }
+]

@@ -1,0 +1,49 @@
+{
+  "policy_version": "company-policy-1.0.0",
+  "sources": {
+    "registration_confirmation": {
+      "rank": 100,
+      "trust_cap": 1.0,
+      "label": "Official registration confirmation"
+    },
+    "organizer_api": {
+      "rank": 98,
+      "trust_cap": 1.0,
+      "label": "Organizer-controlled API"
+    },
+    "organizer_website": {
+      "rank": 95,
+      "trust_cap": 0.98,
+      "label": "Organizer website"
+    },
+    "official_email": {
+      "rank": 92,
+      "trust_cap": 0.98,
+      "label": "Verified organizer email"
+    },
+    "partner_website": {
+      "rank": 70,
+      "trust_cap": 0.85,
+      "label": "Named event partner"
+    },
+    "copied_webpage": {
+      "rank": 50,
+      "trust_cap": 0.7,
+      "label": "Copied or community webpage"
+    },
+    "user_report": {
+      "rank": 40,
+      "trust_cap": 0.65,
+      "label": "Unverified user report"
+    },
+    "unknown": {
+      "rank": 10,
+      "trust_cap": 0.4,
+      "label": "Unknown source"
+    }
+  },
+  "minimum_automatic_authority_rank": 70,
+  "minimum_automatic_trust": 0.7,
+  "near_peer_max_authority_rank_gap": 5,
+  "near_peer_max_trust_gap": 0.1
+}

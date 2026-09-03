@@ -1,0 +1,107 @@
+{
+  "$defs": {
+    "ReviewAction": {
+      "enum": [
+        "HOLD",
+        "REJECT",
+        "APPROVE_OVERRIDE"
+      ],
+      "title": "ReviewAction",
+      "type": "string"
+    },
+    "ReviewStatus": {
+      "enum": [
+        "NOT_REQUIRED",
+        "PENDING",
+        "HELD",
+        "REJECTED",
+        "HUMAN_OVERRIDE"
+      ],
+      "title": "ReviewStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "review_id": {
+      "title": "Review Id",
+      "type": "string"
+    },
+    "decision_id": {
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "request_id": {
+      "title": "Request Id",
+      "type": "string"
+    },
+    "request_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Request Digest",
+      "type": "string"
+    },
+    "decision_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Decision Digest",
+      "type": "string"
+    },
+    "action": {
+      "$ref": "#/$defs/ReviewAction"
+    },
+    "resulting_status": {
+      "$ref": "#/$defs/ReviewStatus"
+    },
+    "reviewer": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Reviewer",
+      "type": "string"
+    },
+    "rationale": {
+      "maxLength": 2000,
+      "minLength": 3,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "authoritative_value": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Authoritative Value"
+    },
+    "requested_value": {
+      "title": "Requested Value",
+      "type": "string"
+    },
+    "action_executed": {
+      "default": false,
+      "title": "Action Executed",
+      "type": "boolean"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "review_id",
+    "decision_id",
+    "request_id",
+    "request_digest",
+    "decision_digest",
+    "action",
+    "resulting_status",
+    "reviewer",
+    "rationale",
+    "requested_value"
+  ],
+  "title": "ReviewEvent",
+  "type": "object"
+}

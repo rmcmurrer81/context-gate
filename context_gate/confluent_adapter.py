@@ -65,6 +65,54 @@ class ConfluentAdapter:
             return PublishReceipt(
                 "local", topic, key, False, "Local fallback: no network action taken"
             )
-        producer.produce(topic, key=key.encode("utf-8"), value=encoded)
-        producer.flush(10)
-        return PublishReceipt("confluent", topic, key, True, "Published to Kafka")
+
+        delivery_confirmed = False
+        delivery_failure: str | None = None
+
+        def delivery_report(error: Any, _message: Any) -> None:
+            nonlocal delivery_confirmed, delivery_failure
+            if error is None:
+                delivery_confirmed = True
+                return
+            code = getattr(error, "code", None)
+            name = getattr(error, "name", None)
+            safe_code = code() if callable(code) else None
+            safe_name = name() if callable(name) else type(error).__name__
+            delivery_failure = (
+                f"{safe_name} ({safe_code})" if safe_code is not None else safe_name
+            )
+
+        producer.produce(
+            topic,
+            key=key.encode("utf-8"),
+            value=encoded,
+            on_delivery=delivery_report,
+        )
+        undelivered = producer.flush(10)
+        if undelivered:
+            return PublishReceipt(
+                "confluent",
+                topic,
+                key,
+                False,
+                f"Kafka delivery timed out with {undelivered} message(s) pending",
+            )
+        if delivery_failure is not None:
+            return PublishReceipt(
+                "confluent",
+                topic,
+                key,
+                False,
+                f"Kafka broker rejected the message: {delivery_failure}",
+            )
+        if not delivery_confirmed:
+            return PublishReceipt(
+                "confluent",
+                topic,
+                key,
+                False,
+                "Kafka queue drained without an observed broker acknowledgement",
+            )
+        return PublishReceipt(
+            "confluent", topic, key, True, "Kafka broker acknowledged the message"
+        )

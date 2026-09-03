@@ -17,3 +17,8 @@ Neutral patterns carried into ContextGate:
 - Expose public-safe receipts that explicitly say when no external action occurred.
 
 ContextGate rewrites these ideas under neutral event, evidence, policy, decision, and review terminology.
+
+The lightweight chat and voice work also reused only generic architecture from the
+user-owned Sarah application: bounded recent conversation, small deterministic
+information packs, explicit abstention, and optional device speech. No chat history,
+identity profile, cloned voice, recording, or other personal asset was copied.

@@ -6,3 +6,9 @@ __pycache__/
 .env
 runtime/
 .streamlit/secrets.toml
+config/source_policy.json
+config/semantic_profile.json
+build/
+dist/
+wheelhouse/
+*.egg-info/

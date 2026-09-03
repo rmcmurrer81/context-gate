@@ -1,5 +1,7 @@
--- Normalize fields and assign authority from trusted policy, not producer claims.
--- The large rank gaps make source class dominate a self-reported trust score.
+-- Normalize fields and apply the synthetic demo policy.
+-- Production must stamp an allowlisted source identity in an authenticated connector
+-- or topic; source_type/status in this public JSON fixture are not authentication.
+-- Rank is ordered separately downstream so producer trust_score cannot outrank it.
 
 CREATE VIEW normalized_context_events AS
 SELECT

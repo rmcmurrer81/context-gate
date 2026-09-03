@@ -1,0 +1,12 @@
+{
+  "category": "event",
+  "entity_id": "event-atlas-forum-2030-05-18",
+  "identity": {
+    "event_name": "Atlas Community Forum",
+    "event_date": "2030-05-18"
+  },
+  "quantity_values": {
+    "crowd_size": 35
+  },
+  "as_of": "2030-04-01T14:00:00Z"
+}

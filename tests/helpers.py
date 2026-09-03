@@ -27,6 +27,7 @@ BASE_REQUEST = {
     "entity_id": "demo",
     "field_name": "venue",
     "requested_value": "10 Innovation Street",
+    "supporting_event_id": "evt-official",
     "consequential": False,
     "created_at": "2026-09-02T12:00:00Z",
 }

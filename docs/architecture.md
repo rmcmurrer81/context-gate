@@ -15,7 +15,7 @@ This boundary means model failure, malformed JSON, prompt injection, or an incor
 | Stage | Input | Output | Contract |
 |---|---|---|---|
 | Normalize | `context_events` | canonical IDs, fields, values, timestamps, derived hash | Missing provenance is retained as missing |
-| Deduplicate | normalized evidence | first semantic source record | Same entity/field/value/source/hash is suppressed |
+| Deduplicate | normalized evidence | stable semantic source record | Policy-relevant sensitivity, status, trust, and effective time cannot be suppressed |
 | Resolve authority | deduplicated evidence | keyed `authoritative_context` | Policy rank, verification status, capped trust, then time |
 | Decide | action + authority as of request time | append-only `context_decisions` | Deterministic and model-independent |
 | Explain | decision evidence package | `context_agent_explanations` | Only explanation text may be adopted after validation |
@@ -23,7 +23,7 @@ This boundary means model failure, malformed JSON, prompt injection, or an incor
 
 ## Authority policy
 
-Producers submit a trust score, but they do not choose their source rank. ContextGate maps a source type to a policy rank and caps the submitted score. For the demo:
+The synthetic cases carry a source type and trust score. ContextGate maps that type to the built-in acceptance policy and caps the submitted score. In production, a trusted connector or ACL-bound ingestion route must stamp an allowlisted source identity; payload fields alone are not authentication. In the Pattern Lab:
 
 | Source type | Rank | Trust cap |
 |---|---:|---:|
@@ -36,7 +36,7 @@ Producers submit a trust score, but they do not choose their source rank. Contex
 | User report | 40 | 0.65 |
 | Unknown | 10 | 0.40 |
 
-The official confirmation therefore remains authoritative even though the copied listing arrived later.
+The official confirmation therefore remains authoritative even though the copied listing arrived later. This proves deterministic policy behavior over synthetic inputs, not authenticated source identity.
 
 ## Review lifecycle
 
@@ -48,11 +48,11 @@ BLOCK or REVIEW
                    └─> HUMAN_OVERRIDE
 ```
 
-`HUMAN_OVERRIDE` is deliberately explicit. It means a person accepted responsibility for departing from the deterministic result; it does not rewrite the evidence and the demo still reports `action_executed=false`.
+`HUMAN_OVERRIDE` is deliberately explicit. It means a person accepted responsibility for departing from the deterministic result; it does not rewrite the evidence and the demo still reports `action_executed=false`. A decision accepts one review disposition; a contradictory second receipt is rejected as an audit identity collision.
 
 ## Audit design
 
-The local fallback uses append-only JSON Lines. Each entry includes the previous entry hash and its own SHA-256 digest. Editing a prior record breaks `verify_chain()`. Kafka topics provide the live replay spine; ContextGate-owned decision and review topics remain separate from Confluent's fixed-schema agent system log.
+The local fallback uses append-only JSON Lines. Each entry includes the previous entry hash and its own SHA-256 digest. Editing a prior record breaks `verify_chain()`, and a reused identity with changed payload is rejected. This detects local corruption but is not an externally anchored ledger: an operator with filesystem control could replace or truncate the whole file. Kafka topics provide the live replay spine; ContextGate-owned decision and review topics remain separate from Confluent's fixed-schema agent system log.
 
 ## Honest MVP boundary
 
@@ -65,4 +65,4 @@ The Python engine implements all named classifications and is directly tested on
 - missing-evidence review;
 - non-blocking agent explanation and fixed-schema logs.
 
-Near-peer tie handling and all remaining production branches must be compiled and tested in the actual workshop environment before making broader claims.
+The nine-case local Pattern Lab covers three `ALLOW`, three `REVIEW`, and three `BLOCK` results, including near-peer ties. The Flink path must still be compiled and tested in the actual workshop environment before making broader cloud claims.

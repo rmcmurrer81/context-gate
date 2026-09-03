@@ -14,6 +14,7 @@ from context_gate.models import (
     ActionRequest,
     ContextEvent,
     DecisionRecord,
+    ReviewEvent,
 )
 
 
@@ -23,6 +24,7 @@ def main() -> None:
         "context_event.schema.json": ContextEvent,
         "action_request.schema.json": ActionRequest,
         "decision_record.schema.json": DecisionRecord,
+        "review_event.schema.json": ReviewEvent,
     }
     for filename, model in models.items():
         path = OUTPUT / filename

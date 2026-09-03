@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid5
 
+from .hashing import sha256_digest
 from .models import (
     ActionRequest,
     DecisionRecord,
@@ -11,6 +12,7 @@ from .models import (
     ReviewEvent,
     ReviewStatus,
 )
+from .normalization import normalize_request
 
 RESULTING_STATUS = {
     ReviewAction.HOLD: ReviewStatus.HELD,
@@ -31,16 +33,23 @@ def record_review(
         raise ValueError("this decision does not require review")
     if decision.request_id != request.request_id:
         raise ValueError("decision and request are not bound")
+    normalized_request = normalize_request(request)
+    request_digest = sha256_digest(normalized_request.model_dump(mode="json"))
+    if decision.request_digest != request_digest:
+        raise ValueError("decision and request content are not bound")
+    decision_digest = sha256_digest(decision.model_dump(mode="json"))
     return ReviewEvent(
-        review_id=f"rev-{uuid4().hex[:12]}",
+        review_id=f"rev-{uuid5(NAMESPACE_URL, f'contextgate-review:{decision.decision_id}').hex[:24]}",
         decision_id=decision.decision_id,
         request_id=request.request_id,
+        request_digest=request_digest,
+        decision_digest=decision_digest,
         action=action,
         resulting_status=RESULTING_STATUS[action],
         reviewer=reviewer,
         rationale=rationale,
         authoritative_value=decision.authoritative_value,
         requested_value=request.requested_value,
-        # This demo records intent only. It never performs a calendar update.
+        # ContextGate records review intent only. It never performs the action.
         action_executed=False,
     )

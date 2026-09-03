@@ -18,7 +18,16 @@ FROM context_decisions AS d,
 LATERAL TABLE(
   AI_RUN_AGENT(
     'context_reviewer_agent',
-    d.evidence_package,
+    JSON_OBJECT(
+      'decision' VALUE d.decision,
+      'risk' VALUE d.risk,
+      'classification' VALUE d.classification,
+      'authoritative_value' VALUE d.authoritative_value,
+      'evidence_event_ids' VALUE d.evidence_event_ids,
+      'requires_human_approval' VALUE d.requires_human_approval,
+      'deterministic_explanation' VALUE d.explanation,
+      'evidence_package' VALUE d.evidence_package
+    ),
     d.request_id,
     'context_agent_logs',
     MAP['debug', 'true']

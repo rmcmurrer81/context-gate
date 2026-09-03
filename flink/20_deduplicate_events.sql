@@ -1,4 +1,6 @@
 -- Confluent requires this exact ROW_NUMBER + rownum = 1 pattern for deduplication.
+-- Policy-relevant fields are part of the key so a sensitivity/status/trust update
+-- cannot be discarded as a duplicate. In production, derive the hash at ingress.
 
 CREATE VIEW deduplicated_context_events AS
 SELECT
@@ -43,8 +45,17 @@ FROM (
     effective_trust,
     authority_score,
     ROW_NUMBER() OVER (
-      PARTITION BY entity_id, field_name, normalized_value, source_name, content_hash
-      ORDER BY ingestion_time ASC
+      PARTITION BY
+        entity_id,
+        field_name,
+        normalized_value,
+        source_name,
+        content_hash,
+        sensitivity,
+        verification_status,
+        trust_score,
+        effective_at
+      ORDER BY ingestion_time ASC, event_id DESC
     ) AS rownum
   FROM normalized_context_events
   WHERE content_hash IS NOT NULL

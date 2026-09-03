@@ -1,0 +1,5 @@
+-r requirements.txt
+
+# Contributor-only tooling. Application dependencies stay in requirements.txt.
+pytest>=8.4,<9
+ruff>=0.12,<1

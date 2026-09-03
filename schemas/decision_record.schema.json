@@ -57,6 +57,27 @@
       "title": "Request Id",
       "type": "string"
     },
+    "request_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Request Digest",
+      "type": "string"
+    },
+    "evidence_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Evidence Digest",
+      "type": "string"
+    },
+    "policy_version": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Policy Version",
+      "type": "string"
+    },
+    "policy_fingerprint": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Policy Fingerprint",
+      "type": "string"
+    },
     "classification": {
       "$ref": "#/$defs/Classification"
     },
@@ -155,6 +176,10 @@
     "decision_id",
     "run_id",
     "request_id",
+    "request_digest",
+    "evidence_digest",
+    "policy_version",
+    "policy_fingerprint",
     "classification",
     "decision",
     "risk",

@@ -1,0 +1,48 @@
+{
+  "category": "event",
+  "identity_keys": [
+    "event_name",
+    "event_date"
+  ],
+  "important_fields": [
+    "crowd_size"
+  ],
+  "quantity_fields": [
+    {
+      "field_name": "crowd_size",
+      "metric_nouns": [
+        "people",
+        "attendees",
+        "guests",
+        "crowd size"
+      ],
+      "delta_markers": [
+        "more",
+        "additional",
+        "add",
+        "+"
+      ],
+      "total_markers": [
+        "total",
+        "altogether",
+        "in total"
+      ],
+      "status_markers": [
+        "confirmed",
+        "are going",
+        "registered",
+        "expected"
+      ],
+      "negation_markers": [
+        "not",
+        "no longer",
+        "cancelled",
+        "canceled",
+        "void",
+        "ignore"
+      ],
+      "maximum_plausible_value": 10000,
+      "maximum_absolute_change": 2000
+    }
+  ]
+}

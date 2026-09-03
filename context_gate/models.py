@@ -68,7 +68,7 @@ def _aware_utc(value: datetime | None) -> datetime | None:
     if value is None:
         return None
     if value.tzinfo is None or value.utcoffset() is None:
-        return value.replace(tzinfo=UTC)
+        raise ValueError("timestamp must include an explicit timezone")
     return value.astimezone(UTC)
 
 
@@ -137,6 +137,10 @@ class DecisionRecord(StrictModel):
     decision_id: str
     run_id: str
     request_id: str
+    request_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    evidence_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    policy_version: str = Field(min_length=1, max_length=64)
+    policy_fingerprint: str = Field(pattern=r"^[a-f0-9]{64}$")
     classification: Classification
     decision: EnforcementDecision
     risk: Risk
@@ -179,6 +183,8 @@ class ReviewEvent(StrictModel):
     review_id: str
     decision_id: str
     request_id: str
+    request_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    decision_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
     action: ReviewAction
     resulting_status: ReviewStatus
     reviewer: str = Field(min_length=1, max_length=128)

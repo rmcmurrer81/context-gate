@@ -41,7 +41,18 @@ FROM (
     sensitivity,
     ROW_NUMBER() OVER (
       PARTITION BY entity_id, field_name
-      ORDER BY authority_score DESC
+      ORDER BY
+        source_policy_rank DESC,
+        CASE verification_status
+          WHEN 'CONFIRMED' THEN 3
+          WHEN 'UNVERIFIED' THEN 2
+          WHEN 'INFERRED' THEN 1
+          ELSE 0
+        END DESC,
+        effective_trust DESC,
+        effective_at DESC,
+        observed_at DESC,
+        event_id DESC
     ) AS rownum
   FROM deduplicated_context_events
 )

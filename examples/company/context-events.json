@@ -1,0 +1,18 @@
+[
+  {
+    "event_id": "evt-fictional-status-001",
+    "entity_id": "service:helio-payments",
+    "field_name": "operating_status",
+    "field_value": "operational",
+    "source_name": "Fictional partner service status page",
+    "source_type": "partner_website",
+    "trust_score": 0.85,
+    "observed_at": "2026-09-02T12:00:00Z",
+    "effective_at": "2026-09-02T12:00:00Z",
+    "sensitivity": "public",
+    "evidence_uri": "https://example.invalid/helio-payments/status",
+    "evidence_reference": "fictional-example-only",
+    "content_hash": "78a2f7de6237ea99e4c01d5c0a462dcb224a4998137ed97b0011602a3e034227",
+    "status": "confirmed"
+  }
+]
