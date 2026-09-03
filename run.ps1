@@ -53,6 +53,26 @@ $Requirements = if ($Dev) {
     Join-Path $ProjectRoot "requirements.txt"
 }
 
+function Get-ContextGateFileHashPrefix {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LiteralPath
+    )
+
+    # Use .NET directly so the launcher also works when Windows PowerShell is
+    # started from a hidden shortcut and its utility module is not auto-loaded.
+    $Sha256 = [System.Security.Cryptography.SHA256]::Create()
+    $Stream = [System.IO.File]::OpenRead($LiteralPath)
+    try {
+        $Bytes = $Sha256.ComputeHash($Stream)
+        $Hex = [System.BitConverter]::ToString($Bytes).Replace("-", "")
+        return $Hex.Substring(0, 16)
+    } finally {
+        $Stream.Dispose()
+        $Sha256.Dispose()
+    }
+}
+
 Set-Location -LiteralPath $ProjectRoot
 
 if (-not (Test-Path -LiteralPath $VirtualPython -PathType Leaf)) {
@@ -87,7 +107,7 @@ if (-not $SkipInstall) {
         $HashFiles += $Requirements
     }
     $HashParts = foreach ($File in $HashFiles) {
-        (Get-FileHash -LiteralPath $File -Algorithm SHA256).Hash.Substring(0, 16)
+        Get-ContextGateFileHashPrefix -LiteralPath $File
     }
     $DependencyHash = $HashParts -join "-"
     $DependencyProfile = if ($Dev) { "dev" } else { "app" }
