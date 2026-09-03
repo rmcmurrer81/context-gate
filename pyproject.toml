@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=78"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "context-gate"
+version = "0.1.0"
+description = "Real-time evidence and approval control for AI agents"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.11,<3",
+]
+
+[project.optional-dependencies]
+demo = ["streamlit>=1.48,<2"]
+test = ["pytest>=8.4,<9"]
+confluent = ["confluent-kafka>=2.11,<3"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["context_gate*"]

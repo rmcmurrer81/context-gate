@@ -1,0 +1,6 @@
+pydantic>=2.11,<3
+streamlit>=1.48,<2
+pytest>=8.4,<9
+
+# Optional live adapter. Install only when connecting to the workshop cluster:
+# confluent-kafka>=2.11,<3

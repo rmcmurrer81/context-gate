@@ -1,0 +1,102 @@
+{
+  "$defs": {
+    "Sensitivity": {
+      "enum": [
+        "public",
+        "internal",
+        "sensitive"
+      ],
+      "title": "Sensitivity",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "request_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "action_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Action Id",
+      "type": "string"
+    },
+    "action_type": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Action Type",
+      "type": "string"
+    },
+    "entity_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Entity Id",
+      "type": "string"
+    },
+    "field_name": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Field Name",
+      "type": "string"
+    },
+    "requested_value": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "title": "Requested Value",
+      "type": "string"
+    },
+    "supporting_event_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Supporting Event Id"
+    },
+    "requested_effective_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Requested Effective At"
+    },
+    "sensitivity": {
+      "$ref": "#/$defs/Sensitivity",
+      "default": "public"
+    },
+    "consequential": {
+      "default": true,
+      "title": "Consequential",
+      "type": "boolean"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "request_id",
+    "action_id",
+    "action_type",
+    "entity_id",
+    "field_name",
+    "requested_value"
+  ],
+  "title": "ActionRequest",
+  "type": "object"
+}

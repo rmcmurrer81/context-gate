@@ -1,0 +1,34 @@
+[
+  {
+    "event_id": "evt-100",
+    "entity_id": "nova-summit",
+    "field_name": "venue",
+    "field_value": "10 Innovation Street",
+    "source_name": "Official Confirmation",
+    "source_type": "registration_confirmation",
+    "trust_score": 0.98,
+    "observed_at": "2026-09-01T13:00:00Z",
+    "effective_at": "2026-09-03T12:30:00Z",
+    "sensitivity": "public",
+    "evidence_uri": null,
+    "evidence_reference": "synthetic-confirmation://nova-summit/evt-100",
+    "content_hash": "78d4fc9d66b0ab2596d3271aec35429fd2ee9d25f2a99bd08e7efe7848a67f50",
+    "status": "confirmed"
+  },
+  {
+    "event_id": "evt-104",
+    "entity_id": "nova-summit",
+    "field_name": "venue",
+    "field_value": "2 Innovation Street",
+    "source_name": "Community Event Listing",
+    "source_type": "copied_webpage",
+    "trust_score": 0.62,
+    "observed_at": "2026-09-02T18:30:00Z",
+    "effective_at": "2026-09-03T12:30:00Z",
+    "sensitivity": "public",
+    "evidence_uri": null,
+    "evidence_reference": "synthetic-listing://nova-summit/evt-104",
+    "content_hash": "a134a88079f4625372469fd05172579e159b5bc86f8954f5fa454df496a7d684",
+    "status": "unverified"
+  }
+]

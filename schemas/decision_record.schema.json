@@ -1,0 +1,167 @@
+{
+  "$defs": {
+    "Classification": {
+      "enum": [
+        "SAFE",
+        "DUPLICATE",
+        "STALE",
+        "CONFLICT",
+        "SENSITIVE",
+        "UNTRUSTED",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "title": "Classification",
+      "type": "string"
+    },
+    "EnforcementDecision": {
+      "enum": [
+        "ALLOW",
+        "BLOCK",
+        "REVIEW"
+      ],
+      "title": "EnforcementDecision",
+      "type": "string"
+    },
+    "ReviewStatus": {
+      "enum": [
+        "NOT_REQUIRED",
+        "PENDING",
+        "HELD",
+        "REJECTED",
+        "HUMAN_OVERRIDE"
+      ],
+      "title": "ReviewStatus",
+      "type": "string"
+    },
+    "Risk": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH"
+      ],
+      "title": "Risk",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "decision_id": {
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "request_id": {
+      "title": "Request Id",
+      "type": "string"
+    },
+    "classification": {
+      "$ref": "#/$defs/Classification"
+    },
+    "decision": {
+      "$ref": "#/$defs/EnforcementDecision"
+    },
+    "risk": {
+      "$ref": "#/$defs/Risk"
+    },
+    "authoritative_value": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Authoritative Value"
+    },
+    "competing_values": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Competing Values",
+      "type": "array"
+    },
+    "evidence_event_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Event Ids",
+      "type": "array"
+    },
+    "explanation": {
+      "title": "Explanation",
+      "type": "string"
+    },
+    "deterministic_rule_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Deterministic Rule Ids",
+      "type": "array"
+    },
+    "model_explanation_used": {
+      "default": false,
+      "title": "Model Explanation Used",
+      "type": "boolean"
+    },
+    "model_response_valid": {
+      "default": false,
+      "title": "Model Response Valid",
+      "type": "boolean"
+    },
+    "requires_human_approval": {
+      "title": "Requires Human Approval",
+      "type": "boolean"
+    },
+    "review_status": {
+      "$ref": "#/$defs/ReviewStatus"
+    },
+    "reviewed_by": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reviewed By"
+    },
+    "reviewed_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reviewed At"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "decision_id",
+    "run_id",
+    "request_id",
+    "classification",
+    "decision",
+    "risk",
+    "explanation",
+    "requires_human_approval",
+    "review_status"
+  ],
+  "title": "DecisionRecord",
+  "type": "object"
+}

@@ -1,0 +1,164 @@
+{
+  "$defs": {
+    "EvidenceStatus": {
+      "enum": [
+        "confirmed",
+        "unverified",
+        "inferred",
+        "unknown"
+      ],
+      "title": "EvidenceStatus",
+      "type": "string"
+    },
+    "Sensitivity": {
+      "enum": [
+        "public",
+        "internal",
+        "sensitive"
+      ],
+      "title": "Sensitivity",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "event_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Event Id",
+      "type": "string"
+    },
+    "entity_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Entity Id",
+      "type": "string"
+    },
+    "field_name": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Field Name",
+      "type": "string"
+    },
+    "field_value": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "title": "Field Value",
+      "type": "string"
+    },
+    "source_name": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Name"
+    },
+    "source_type": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Type"
+    },
+    "trust_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Trust Score",
+      "type": "number"
+    },
+    "observed_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Observed At"
+    },
+    "effective_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Effective At"
+    },
+    "sensitivity": {
+      "$ref": "#/$defs/Sensitivity",
+      "default": "public"
+    },
+    "evidence_uri": {
+      "anyOf": [
+        {
+          "maxLength": 2048,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evidence Uri"
+    },
+    "evidence_reference": {
+      "anyOf": [
+        {
+          "maxLength": 2048,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evidence Reference"
+    },
+    "content_hash": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Content Hash"
+    },
+    "status": {
+      "$ref": "#/$defs/EvidenceStatus",
+      "default": "unverified"
+    }
+  },
+  "required": [
+    "event_id",
+    "entity_id",
+    "field_name",
+    "field_value",
+    "trust_score"
+  ],
+  "title": "ContextEvent",
+  "type": "object"
+}
