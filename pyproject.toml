@@ -7,6 +7,7 @@ name = "context-gate"
 version = "0.1.0"
 description = "Real-time evidence and approval control for AI agents"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.11"
 keywords = ["ai-agents", "confluent", "evidence", "human-in-the-loop", "streaming"]
 classifiers = [
@@ -19,13 +20,15 @@ classifiers = [
 ]
 dependencies = [
   "pydantic>=2.11,<3",
+  "Pillow>=10,<13",
+  "python-docx>=1.2,<2",
+  "reportlab>=4.2,<5",
 ]
 
 [project.optional-dependencies]
 demo = [
   "streamlit>=1.48,<2",
   "pypdf>=6,<7",
-  "python-docx>=1.2,<2",
 ]
 test = ["pytest>=8.4,<9"]
 confluent = ["confluent-kafka>=2.11,<3"]
@@ -41,4 +44,4 @@ testpaths = ["tests"]
 include = ["context_gate*"]
 
 [tool.setuptools.package-data]
-context_gate = ["data/*.json"]
+context_gate = ["data/*.json", "web/static/*.html", "web/static/*.css", "web/static/*.js", "web/static/*.svg"]

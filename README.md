@@ -8,7 +8,7 @@ ContextGate evaluates changing evidence before software stores a fact or perform
 
 > Kafka is the evidence spine. Flink is the gate. The Streaming Agent explains. A person controls exceptions.
 
-The repository includes a working local application, a reusable Python decision engine, configurable company source policy, strict JSON contracts, document and exported-email intake, append-only review receipts, a Kafka adapter, and ordered Flink SQL. A nine-case fictional Pattern Lab is included as an acceptance suite; it is not the only data the engine can evaluate.
+The repository includes a working local application, a reusable Python decision engine, configurable company source policy, strict JSON contracts, document and exported-email intake, safe public website sources with manual and optional while-open monitoring, branded DOCX/PDF/PNG exports, append-only review receipts, a Kafka adapter, and ordered Flink SQL. A nine-case fictional Pattern Lab is included as an acceptance suite; it is not the only data the engine can evaluate.
 
 ## Install it for your organization
 
@@ -26,7 +26,7 @@ cd context-gate
 bash run.sh
 ```
 
-The launcher creates an isolated `.venv`, installs the dependency ranges, binds the app only to `127.0.0.1`, disables Streamlit usage telemetry, and opens [http://127.0.0.1:8501](http://127.0.0.1:8501). It does not require an API key, cloud account, model download, or external action.
+The launcher creates an isolated `.venv`, installs the dependency ranges, binds the app only to `127.0.0.1`, and opens the fixed-screen command center at [http://127.0.0.1:8501](http://127.0.0.1:8501). It does not require an API key, cloud account, model download, or external action. The original Streamlit proof lab remains available with `.\run.ps1 lab` or `bash run.sh lab`.
 
 Run the read-only installation check at any time:
 
@@ -48,7 +48,7 @@ Run the complete fictional real-world acceptance matrix:
 bash run.sh acceptance
 ```
 
-For a deployment checklist, secrets boundary, OAuth design, upgrades, and rollback, see [Company setup and operations](docs/company_setup.md).
+For workspace and live-mail setup, see the [company quick start](docs/company_quickstart.md). For deployment hardening, secrets boundaries, upgrades, and rollback, see [Company setup and operations](docs/company_setup.md).
 
 For a timed, click-by-click presentation, use the [solo hackathon demo script](docs/demo_script.md). The shorter [90-second judge path](docs/judge_start_here.md) is useful for acceptance checks and offline command-line backup.
 
@@ -67,6 +67,22 @@ These images were captured from the tested local build with fictional data:
 ### Human correction learned without erasing the original
 
 ![ContextGate resolved dashboard and learned correction](docs/screenshots/03-correction-learned.png)
+
+### Organization event intelligence in persistent chat
+
+![ContextGate listing grounded event dates, times, addresses, and evidence](docs/screenshots/04-event-intelligence.png)
+
+### Configurable public website sources
+
+![ContextGate website sources with operator-defined evidence goals](docs/screenshots/05-website-sources.png)
+
+### Calendar with undated evidence kept separate
+
+![ContextGate calendar with source-provided dates and an undated evidence queue](docs/screenshots/06-calendar.png)
+
+### Parallel office-sales intelligence
+
+![ContextGate answering grouped sales totals from uploaded evidence](docs/screenshots/07-sales-intelligence.png)
 
 ## Configure your company policy
 
@@ -96,20 +112,22 @@ The `unknown` source is mandatory. Explicit policy configuration fails closed if
 
 Never put passwords, OAuth tokens, client secrets, email addresses, or message bodies in the policy file. A producer-provided `source_type` is only a claim; production ingestion must assign source identity from an authenticated connector or ACL-bound route.
 
-## Main dashboard and decision queue
+## One-screen command center
 
-The top of the web app evaluates the fictional case catalog with the active company policy and shows live totals for:
+The dark command center keeps the company identity, evidence rail, decision queue, patterns, and **Ask ContextGate** chat visible without page scrolling. Choose **Layout** to put chat on the left, middle, or right; select a focus preset; or resize the evidence and chat panels. Choose **Settings** to change the company/operator names, company website and logo, export header and footer, important detail, entity-match fields, risk posture, voice, scan limit, optional auto-monitor interval, and connected accounts. Repository defaults stay neutral; for example, a presenter's local kit can be branded as **Kira Labs**, use `https://kiralabs.org`, and display its logo without changing source code.
+
+The dashboard evaluates the fictional case catalog with the active company policy and shows live totals for:
 
 - **Total:** every case evaluated in the current dashboard run;
 - **Pass:** cases whose resolved displayed outcome is `ALLOW`;
 - **Blocked:** cases whose resolved displayed outcome is `BLOCK`; and
 - **Needs attention:** cases whose resolved displayed outcome is `REVIEW`.
 
-Before any corrections, these totals come from current evaluations rather than the cases' built-in baseline labels, so changing the company policy can change the distribution. An exact-context human correction changes only the resolved operator view; the dashboard keeps the original deterministic totals visible and never rewrites the decision receipt. Queue filters use the resolved outcome. Each case has a clickable detail expander, and its case-specific button—such as **Open B1 details**—makes that case active in the full evidence and decision view. Opening or correcting a case does not execute the requested action.
+Before any corrections, these totals come from current evaluations rather than the cases' built-in baseline labels, so changing the company policy can change the distribution. An exact-context human correction changes only the resolved operator view; the dashboard keeps the original deterministic totals visible and never rewrites the decision receipt. Queue filters use the resolved outcome. Select a row to inspect the evidence, rule IDs, authority comparison, safe next step, and correction controls. Opening or correcting a case does not execute the requested action.
 
 ## Controlled operator learning
 
-The chat sits directly beneath the dashboard. Ask questions such as **Why are there so many red items?** and ContextGate explains every matching case with its evidence and deterministic rule IDs. Red/stopped maps to `BLOCK`, amber/attention to `REVIEW`, and green/pass to `ALLOW`.
+The chat is visible immediately beside the dashboard. Ask questions such as **Why are there so many red items?** and ContextGate explains every matching case with its evidence and deterministic rule IDs. It can also calculate deduplicated source/location totals such as Eventbrite and New York City, explain the crowd-size trace `35 + 78 = 113`, and show address recurrence. Red/stopped maps to `BLOCK`, amber/attention to `REVIEW`, and green/pass to `ALLOW`.
 
 Learning is controlled, not silent:
 
@@ -121,6 +139,28 @@ Learning is controlled, not silent:
 - guidance and corrections have separate append-only retraction receipts, so the operator can restore the original effective result without deleting history.
 
 Learned guidance can influence later chat explanations and safe-next-step wording only. It never changes evidence authority, edits the deterministic policy, bypasses required approval, or executes an action. The local demo stores guidance in the SQLite file selected by `CONTEXTGATE_MEMORY_PATH` under the tenant label selected by `CONTEXTGATE_TENANT_ID` (default `local-company`). This database is plaintext; a company deployment must add authenticated tenant binding, encryption at rest, backups, and retention/deletion controls.
+
+The same chat can maintain bounded tracking instructions and retrieve structured event details. For example, **Keep track of events from Hanson Robotics** returns each matching fictional event's address, date, and time and saves the tracking instruction as explicit company guidance. It does not invent missing details or silently broaden the source catalog.
+
+For reusable grouped totals, chat can also maintain multiple independent tracking topics. Say **Also track office sales**, review the proposed `sales` metric and `office` identity field, then say **Confirm tracking configuration**. Upload [`examples/company/fictional-office-sales.csv`](examples/company/fictional-office-sales.csv) and ask **What are total sales for New York?** or **What are total sales for Austin?**; the bundled fictional rows deterministically produce `189` and `73`, with a reference to every contributing row. **What are you tracking?**, **Show office sales**, and **Go back to sales** list or switch report context without deleting other topics or source data. **Undo last tracking change** removes only the most recently confirmed definition from the current session.
+
+The grouped-metric core is not specific to offices or sales. A two-column CSV can be inferred conservatively, while JSON can declare `group_by`, `metric`, and a `rows` array. A confirmed command such as **Track revenue by region** supplies the expected field names for later CSV or JSON uploads. Metric intake is local and bounded to CSV/JSON files of 1 MiB, 5,000 rows, and 250 groups. Up to 24 topic definitions persist in the local runtime file; uploaded bytes are never saved, and parsed metric datasets remain only in server memory until restart. A tracking topic is an independent saved query/report definition; creating one does not silently add a new external connector. Separately, the operator may enable periodic checks of already configured websites and already authorized mailboxes while the browser command center and local server remain open. Structured metric rows stay separate from the event catalog, while reports and charts label the dataset, source file, fictional status, and row-level provenance.
+
+Open **Calendar** from the top bar or company-control rail to see every distinct visible event that has a source-provided date. Select an event to inspect its organizer, time, address, source, and exact evidence reference, or send its organizer to the chat for follow-up. Events without a usable source date remain in **Events needing a date** instead of being placed on a guessed day. Fictional demo records are labeled in amber, and hidden or deleted sources stay excluded from the calendar.
+
+Calendar chat questions use that same visible catalog. Try **What is on my calendar?**, **Show upcoming events**, or **Which events need dates?** Answers cite the listed source records, cap long lists, and explicitly exclude undated records from upcoming results instead of guessing.
+
+Source controls distinguish visibility from deletion:
+
+- **Do not show me data from Posh** saves a reversible hide rule. Matching records remain stored but are excluded from the dashboard, chat answers, counts, and patterns.
+- **Show me data from Posh again** removes that hide rule.
+- **Delete data from Posh** removes matching records from the local source catalog and saves a deletion exclusion so a rescan cannot silently re-import them. It does not delete anything from the upstream provider and is not a substitute for an enterprise retention or legal-erasure workflow.
+
+## Branded reports and graphics
+
+Ask the visible chat to **create a report**, **create a pie chart**, or **create a combo report and chart**. ContextGate writes real `.docx`, `.pdf`, and/or `.png` files to the current user's `Documents/ContextGate Exports` folder and replies with the exact saved paths. An explicit HTML request is also supported. Reports use only the currently visible catalog and include evidence labels, metrics, cases, and patterns; OAuth credentials and tokens are never included.
+
+The company name appears first by default. Settings can add a PNG/JPEG logo, website, and custom footer or disable the company-name header. A one-time request such as **Create a PDF report without the company name** suppresses the name for that export without changing the saved default. Creating a file never emails or publishes it; a person chooses what to send.
 
 ## Evaluate your own evidence
 
@@ -171,7 +211,7 @@ Inspect the active policy without exposing its contents:
 python -m context_gate policy
 ```
 
-## Bring in documents, pictures, PDFs, and email
+## Bring in documents, pictures, PDFs, email, and public websites
 
 The local app accepts text, Markdown, CSV, JSON, HTML, XML, exported `.eml` email, PDF, Word, screenshots, and photos up to 10 MiB.
 
@@ -180,9 +220,13 @@ The local app accepts text, Markdown, CSV, JSON, HTML, XML, exported `.eml` emai
 - A user can state the exact visible claim and create an `UNVERIFIED` Kafka-ready candidate linked to the original artifact hash.
 - Upload bytes are not saved by the application.
 
-For live Gmail or Microsoft 365 accounts, use a separate least-privilege OAuth connection per account. The provider adapter should keep refresh tokens in a secret manager, retain provider message IDs and authentication results, store private bodies outside Kafka, and emit only the minimum claim plus a private evidence reference. Password-based mailbox access and tokens committed to Git are not supported.
+For live Gmail, Outlook.com/Hotmail, or Microsoft 365 accounts, use **Sources** or **Settings** to configure the installation's registered OAuth client and then choose **Add account**. ContextGate opens the provider's real authorization-code + PKCE consent screen, requests read-only Gmail or Microsoft Graph mail access, supports multiple accounts, scans manually or on the saved while-open interval, and lets the operator remove an account. An address alone never authenticates an inbox, and mailbox passwords are never requested.
 
-The provider-neutral event boundary is implemented; organization-specific one-click Gmail/Microsoft authorization is not bundled because it requires the deploying company’s registered OAuth application, consent policy, redirect URLs, tenant rules, and secret store. The complete adapter contract and multi-account design are in [Information and connector intake](docs/ingestion_connectors.md).
+The hackathon build keeps access and refresh tokens only in server memory, so reconnect after a restart. A production deployment must move them to an encrypted, tenant-bound secret store and complete the provider's app verification and consent requirements. Exact setup steps are in the [company quick start](docs/company_quickstart.md), and the broader adapter contract is in [Information and connector intake](docs/ingestion_connectors.md).
+
+For public website evidence, open **Connect sources**, enter one public HTTP or HTTPS URL plus a short extraction goal, choose **Add website**, and then select **Scan** when you want a fresh fetch. ContextGate parses Schema.org JSON-LD `Event` data and iCalendar events. If neither is available, it returns bounded page-title, metadata, and visible-text evidence rather than inventing event fields; only structured event records enter the event catalog.
+
+Website scans are deliberately bounded: they do not execute page JavaScript, sign in, or bypass paywalls or access controls. The optional auto-monitor is a browser-controlled periodic rescan while the command center and local server remain open; it is not a durable background service or a promise of continuous collection. URLs, DNS results, and redirects to local, loopback, or other private network addresses are blocked, and a response may not exceed 2 MB. The first scan that imports a real website event retires the fictional event catalog before adding the new records, preventing demo and real counts from being mixed. Removing a saved website definition stops future scans but does not silently delete evidence already imported into the catalog.
 
 ## Remember patterns and interpret important details
 
@@ -196,11 +240,11 @@ Use [`config/semantic_profile.example.json`](config/semantic_profile.example.jso
 
 | Mode | Included now | Organization supplies |
 |---|---|---|
-| Local company pilot | Web app, arbitrary JSON evaluation, custom policy, file/exported-email intake, receipts, local audit log, advisory pattern memory | Company policy and normalized evidence |
+| Local company pilot | Fixed-screen command center, branded DOCX/PDF/PNG reports and graphics, company settings, source visibility/deletion controls, arbitrary JSON evaluation, custom policy, file/exported-email and bounded public-website intake, receipts, local audit log, advisory pattern memory | Company policy and normalized evidence |
 | Python service integration | Schema-validated models, strict untrusted-boundary examples, deterministic engine, pattern analyzer, and quantitative interpreter | API/worker wrapper, authentication, tenant binding, durable encrypted stores |
 | Kafka producer integration | Confirmed-delivery adapter and JSON contracts | Brokers, credentials, topics, ACLs, Schema Registry choices |
 | Confluent Cloud / Flink | Ordered SQL, authority/conflict logic, Streaming Agent prompt boundary | Catalog names, supported SQL adjustments, model entitlement, RBAC |
-| Live Gmail / Microsoft 365 | OAuth and lineage contract | Registered provider apps, consent, callbacks, token vault, message-to-claim adapter |
+| Live Gmail / Outlook / Microsoft 365 | Local authorization-code + PKCE connectors, multiple accounts, read-only manual or while-open periodic scans, evidence references | Registered provider apps; for production, verification, tenant controls, encrypted token vault, and retention policy |
 | OCR / vision | Honest `OCR_REQUIRED` boundary | Approved OCR/vision service and model/version lineage |
 
 This is a deployable decision core and company pilot, not a claim of turnkey production compliance. Before production, add authentication, tenant isolation, encrypted storage, retention/deletion controls, monitoring, disaster recovery, and a security review.
@@ -309,6 +353,8 @@ run.ps1 / run.sh     Safe localhost first-run launchers
 ## Privacy and provenance
 
 - The repository contains fictional fixtures only—no personal inbox content, account addresses, credentials, recordings, or profiles.
+- A hide rule changes what the local workspace displays and analyzes; it does not erase the stored record. A local deletion removes matching source-catalog records and prevents their automatic re-import, but it does not delete the upstream email or replace a production retention/deletion workflow.
+- Generated reports are written only after an explicit export request. They can contain the visible evidence and company branding, so review them before sharing and protect the `Documents/ContextGate Exports` folder under company policy.
 - Uploaded artifact bytes and extracted text stay in memory and are not written by the intake module. Decision receipts are appended automatically, and review receipts are appended when submitted, to ignored plaintext files under `runtime/`; those receipts can contain company claim values. Use only authorized data locally and protect, rotate, or clear that directory under company retention rules.
 - Company Memory also uses ignored plaintext SQLite under `runtime/` by default. Tenant IDs are filters rather than authentication, and its unkeyed payload digests are not signatures. Add authenticated tenant binding, encryption, protected backups, and explicit retention/deletion controls before production use.
 - Browser speech uses the device’s installed voice; ContextGate does not clone, upload, or retain a voice.

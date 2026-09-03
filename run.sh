@@ -3,11 +3,12 @@ set -Eeuo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: bash run.sh [app|demo|acceptance|doctor|test] [--dev] [--skip-install]
+Usage: bash run.sh [app|lab|demo|acceptance|doctor|test] [--dev] [--skip-install]
 
 Creates .venv on first use and runs ContextGate in safe local mode.
 
-  app            Start the Streamlit application on localhost (default)
+  app            Start the ContextGate web console on localhost (default)
+  lab            Start the legacy Streamlit operator lab
   demo           Print the deterministic acceptance decision as JSON
   acceptance     Run the fictional real-world acceptance matrix
   doctor         Check dependencies, schemas, data, and the local fallback
@@ -24,7 +25,7 @@ task_was_set="false"
 
 while (($#)); do
   case "$1" in
-    app|demo|acceptance|doctor|test)
+    app|lab|demo|acceptance|doctor|test)
       if [[ "$task_was_set" == "true" ]]; then
         echo "Only one task may be selected." >&2
         usage >&2
@@ -111,12 +112,60 @@ fi
 # remains an explicit, separate action and is never reached from this script.
 export CONTEXTGATE_MODE="local"
 export PYTHONUTF8="1"
+export STREAMLIT_SERVER_SHOW_EMAIL_PROMPT="false"
+export STREAMLIT_BROWSER_GATHER_USAGE_STATS="false"
+
+app_url="http://127.0.0.1:8501"
+health_url="$app_url/api/health"
+
+contextgate_is_running() {
+  "$virtual_python" - "$health_url" <<'PY' >/dev/null 2>&1
+import json
+import sys
+import urllib.request
+
+try:
+    with urllib.request.urlopen(sys.argv[1], timeout=2) as response:
+        if not 200 <= response.status < 300:
+            raise SystemExit(1)
+        payload = json.load(response)
+except (OSError, ValueError):
+    raise SystemExit(1)
+
+raise SystemExit(
+    0
+    if isinstance(payload, dict)
+    and payload.get("service") == "ContextGate"
+    and payload.get("status") == "ok"
+    else 1
+)
+PY
+}
+
+open_contextgate() {
+  if command -v open >/dev/null 2>&1; then
+    open "$app_url" >/dev/null 2>&1
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$app_url" >/dev/null 2>&1 &
+  else
+    printf 'ContextGate is already running at %s\n' "$app_url"
+  fi
+}
 
 case "$task" in
   app)
+    if contextgate_is_running; then
+      printf 'ContextGate is already running at %s\n' "$app_url"
+      open_contextgate
+      exit 0
+    fi
+    exec "$virtual_python" -m context_gate.web_console
+    ;;
+  lab)
     exec "$virtual_python" -m streamlit run app.py \
       --server.address 127.0.0.1 \
       --server.maxUploadSize 10 \
+      --server.showEmailPrompt false \
       --browser.gatherUsageStats false
     ;;
   demo)

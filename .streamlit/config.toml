@@ -1,5 +1,6 @@
 [server]
 maxUploadSize = 10
+showEmailPrompt = false
 
 [browser]
 gatherUsageStats = false

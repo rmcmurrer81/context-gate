@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050810">
+  <meta name="color-scheme" content="dark">
+  <title>ContextGate Control Room</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to control room</a>
+
+  <div class="app-shell" id="app" aria-busy="true">
+    <div class="ambient-grid" aria-hidden="true"></div>
+
+    <header class="command-bar">
+      <div class="brand-lockup" aria-label="ContextGate">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 36" focusable="false">
+            <path d="M16 2 29 7v10c0 8.2-5.2 14-13 17C8.2 31 3 25.2 3 17V7L16 2Z"></path>
+            <path d="m10.5 18 3.4 3.4 7.8-8.2"></path>
+          </svg>
+        </span>
+        <span>
+          <strong>ContextGate</strong>
+          <small>CONTROL ROOM</small>
+        </span>
+      </div>
+
+      <div class="workspace-heading">
+        <span class="micro-label">ACTIVE WORKSPACE</span>
+        <img class="workspace-logo" id="workspace-logo" alt="Company logo" hidden>
+        <span class="workspace-identity">
+          <span id="company-name">Company workspace</span>
+          <small id="operator-name">Operator: Local operator</small>
+        </span>
+        <span class="workspace-mode" id="workspace-mode">EXAMPLE · LOCAL</span>
+      </div>
+
+      <div class="command-status" aria-label="System status">
+        <span class="status-chip cyan"><i aria-hidden="true"></i><span id="policy-status">SAFETY-FIRST POLICY</span></span>
+        <span class="status-chip"><i aria-hidden="true"></i><span id="engine-status">ENGINE CHECKING</span></span>
+        <span class="status-chip safe"><i aria-hidden="true"></i>No external action</span>
+        <button class="compact-button calendar-button" type="button" data-open-dialog="calendar-dialog"><span aria-hidden="true">▦</span> Calendar</button>
+        <button class="compact-button layout-button" type="button" data-open-dialog="layout-dialog"><span aria-hidden="true">▦</span> Layout</button>
+        <button class="compact-button export-button" type="button" data-open-dialog="export-dialog"><span aria-hidden="true">⇩</span> Export</button>
+        <time class="system-clock" id="system-clock" aria-label="Local time">--:--:--</time>
+      </div>
+    </header>
+
+    <div class="global-alert" id="global-alert" role="alert" hidden>
+      <span class="alert-icon" aria-hidden="true">!</span>
+      <span id="global-alert-message"></span>
+      <button class="icon-button" id="dismiss-alert" type="button" aria-label="Dismiss error">×</button>
+    </div>
+
+    <main class="control-room" id="main-content">
+      <aside class="left-rail surface" aria-label="Workspace controls">
+        <div class="rail-intro">
+          <span class="micro-label">COMPANY CONTROL</span>
+          <strong>Configure &amp; observe</strong>
+          <p>Local evidence operations. Human approval remains authoritative.</p>
+        </div>
+
+        <nav class="rail-nav" aria-label="Company tools">
+          <button class="rail-action" type="button" data-open-dialog="company-dialog">
+            <span class="rail-icon" aria-hidden="true">⌂</span>
+            <span><strong>Company setup</strong><small>Settings · identity &amp; policy</small></span>
+            <span class="rail-chevron" aria-hidden="true">›</span>
+          </button>
+          <button class="rail-action" type="button" data-open-dialog="sources-dialog">
+            <span class="rail-icon" aria-hidden="true">⇣</span>
+            <span><strong>Connect sources</strong><small>Upload works now</small></span>
+            <span class="rail-chevron" aria-hidden="true">›</span>
+          </button>
+          <button class="rail-action" type="button" data-open-dialog="calendar-dialog">
+            <span class="rail-icon" aria-hidden="true">▦</span>
+            <span><strong>Calendar</strong><small id="calendar-rail-status">Event dates loading</small></span>
+            <span class="rail-chevron" aria-hidden="true">›</span>
+          </button>
+          <button class="rail-action" type="button" data-open-dialog="memory-dialog">
+            <span class="rail-icon" aria-hidden="true">◎</span>
+            <span><strong>Memory</strong><small>Patterns &amp; guidance</small></span>
+            <span class="rail-chevron" aria-hidden="true">›</span>
+          </button>
+          <button class="rail-action" type="button" data-open-dialog="advanced-dialog">
+            <span class="rail-icon" aria-hidden="true">⌘</span>
+            <span><strong>Advanced Lab</strong><small>Health &amp; diagnostics</small></span>
+            <span class="rail-chevron" aria-hidden="true">›</span>
+          </button>
+        </nav>
+
+        <div class="rail-signal" aria-label="Source status summary">
+          <div class="signal-heading">
+            <span class="micro-label">SOURCE SIGNAL</span>
+            <span class="live-dot" aria-label="Local source status indicator"></span>
+          </div>
+          <div class="signal-bars" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <p id="mailbox-status">Mailbox: Not connected</p>
+          <p id="upload-status">Local upload: Ready</p>
+        </div>
+
+        <div class="rail-footer">
+          <span class="shield-dot" aria-hidden="true">✓</span>
+          <span><strong>No external action</strong><small>Analysis and receipts only</small></span>
+        </div>
+      </aside>
+
+      <section class="command-center" aria-labelledby="control-room-title">
+        <header class="section-heading">
+          <div>
+            <span class="micro-label">LIVE DECISION FIELD</span>
+            <h1 id="control-room-title">Operational picture</h1>
+          </div>
+          <div class="refresh-cluster">
+            <span id="last-updated" aria-live="polite">Awaiting state</span>
+            <button class="compact-button" id="refresh-state" type="button">
+              <span aria-hidden="true">↻</span> Refresh
+            </button>
+          </div>
+        </header>
+
+        <section class="kpi-grid" aria-label="Decision totals">
+          <article class="kpi-card total">
+            <div><span class="micro-label">EVALUATED</span><strong id="total-count">—</strong></div>
+            <span class="kpi-glyph" aria-hidden="true">Σ</span>
+            <small>ACTIVE POLICY</small>
+          </article>
+          <article class="kpi-card allow">
+            <div><span class="micro-label">PASSED GATE</span><strong id="allow-count">—</strong></div>
+            <span class="kpi-glyph" aria-hidden="true">✓</span>
+            <small>ALLOW</small>
+          </article>
+          <article class="kpi-card review">
+            <div><span class="micro-label">NEEDS ATTENTION</span><strong id="review-count">—</strong></div>
+            <span class="kpi-glyph" aria-hidden="true">!</span>
+            <small>REVIEW</small>
+          </article>
+          <article class="kpi-card block">
+            <div><span class="micro-label">SAFELY STOPPED</span><strong id="block-count">—</strong></div>
+            <span class="kpi-glyph" aria-hidden="true">×</span>
+            <small>BLOCK</small>
+          </article>
+        </section>
+
+        <section class="telemetry-grid">
+          <article class="signal-panel surface" aria-labelledby="signal-title">
+            <header class="panel-heading">
+              <div><span class="micro-label">DECISION SIGNAL</span><h2 id="signal-title">Gate distribution</h2></div>
+              <span class="panel-code">LIVE / 01</span>
+            </header>
+            <div class="signal-visual">
+              <div class="decision-orbit" id="decision-orbit" role="img" aria-label="No decision totals loaded">
+                <div class="orbit-grid" aria-hidden="true"></div>
+                <div class="orbit-core">
+                  <strong id="orbit-total">—</strong>
+                  <span>RECEIPTS</span>
+                </div>
+              </div>
+              <div class="signal-legend" aria-label="Decision legend">
+                <div><span class="legend-dot allow"></span><span>ALLOW</span><strong id="allow-percent">—</strong></div>
+                <div><span class="legend-dot review"></span><span>REVIEW</span><strong id="review-percent">—</strong></div>
+                <div><span class="legend-dot block"></span><span>BLOCK</span><strong id="block-percent">—</strong></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="queue-panel surface" aria-labelledby="queue-title">
+            <header class="panel-heading queue-heading">
+              <div><span class="micro-label">SIGNAL QUEUE</span><h2 id="queue-title">Cases</h2></div>
+              <div class="queue-tabs" role="group" aria-label="Filter cases by effective outcome">
+                <button type="button" data-queue-filter="REVIEW" aria-pressed="true">REVIEW</button>
+                <button type="button" data-queue-filter="ALL" aria-pressed="false">ALL</button>
+                <button type="button" data-queue-filter="ALLOW" aria-pressed="false">ALLOW</button>
+                <button type="button" data-queue-filter="BLOCK" aria-pressed="false">BLOCK</button>
+              </div>
+            </header>
+            <div class="queue-list" id="case-queue" aria-live="polite">
+              <div class="empty-state"><span class="loading-ring" aria-hidden="true"></span><p>Loading decision queue…</p></div>
+            </div>
+          </article>
+        </section>
+
+        <article class="selected-case surface" aria-labelledby="selected-case-title">
+          <header class="selected-header">
+            <div>
+              <span class="micro-label">SELECTED CASE</span>
+              <h2 id="selected-case-title">No case selected</h2>
+            </div>
+            <span class="outcome-badge neutral" id="selected-outcome">WAITING</span>
+          </header>
+          <div class="case-summary-grid">
+            <div class="case-summary-primary">
+              <p id="selected-summary">Choose a queue item to inspect its evidence and deterministic receipt.</p>
+              <div class="case-tags" id="selected-tags"></div>
+            </div>
+            <dl class="case-facts">
+              <div><dt>Deterministic outcome</dt><dd id="selected-original">—</dd></div>
+              <div><dt>Effective outcome</dt><dd id="selected-effective">—</dd></div>
+              <div><dt>Evidence</dt><dd id="selected-evidence">—</dd></div>
+            </dl>
+            <button class="primary-button inspect-button" id="open-case-details" type="button" disabled>
+              Inspect case <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </article>
+      </section>
+
+      <aside class="chat-panel surface" aria-labelledby="chat-title">
+        <header class="chat-header">
+          <div>
+            <span class="micro-label">EVIDENCE-GROUNDED ASSISTANT</span>
+            <h2 id="chat-title">Ask ContextGate</h2>
+          </div>
+          <span class="assistant-orb" aria-hidden="true"></span>
+        </header>
+        <div class="safety-strip" aria-label="Assistant boundaries">
+          <span>ADVISORY</span><span>LOCAL-ONLY</span><span>No external action</span>
+        </div>
+        <div class="quick-prompts" aria-label="Quick prompts">
+          <button type="button" data-quick-prompt="How many events came from Eventbrite?">Eventbrite count</button>
+          <button type="button" data-quick-prompt="How many events are in New York City?">NYC count</button>
+          <button type="button" data-quick-prompt="Keep track of events from Hanson Robotics.">Track Hanson</button>
+        </div>
+        <div class="chat-log" id="chat-log" aria-live="polite" aria-relevant="additions text">
+          <article class="chat-message assistant">
+            <span class="message-role">CONTEXTGATE</span>
+            <p>Ask about a case, its evidence, a pattern, or why the gate reached an outcome.</p>
+          </article>
+        </div>
+        <div class="chat-error" id="chat-error" role="alert" hidden></div>
+        <form class="chat-form" id="chat-form">
+          <label for="chat-input">Message</label>
+          <textarea id="chat-input" name="message" rows="2" maxlength="2000" required placeholder="Why does this case need review?"></textarea>
+          <label class="check-control">
+            <input type="checkbox" id="save-guidance" name="save_guidance">
+            <span>Save my message as explicit guidance</span>
+          </label>
+          <button class="primary-button" id="chat-submit" type="submit">
+            Ask ContextGate <span aria-hidden="true">↗</span>
+          </button>
+        </form>
+        <button class="disclosure-button" type="button" data-open-dialog="security-dialog">
+          Security, storage &amp; learning boundaries <span aria-hidden="true">›</span>
+        </button>
+      </aside>
+    </main>
+  </div>
+
+  <dialog class="control-dialog" id="company-dialog" aria-labelledby="company-dialog-title">
+    <div class="dialog-shell">
+      <header class="dialog-header">
+        <div><span class="micro-label">WORKSPACE SETTINGS</span><h2 id="company-dialog-title">Company setup</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close company setup">×</button>
+      </header>
+      <div class="dialog-scroll settings-scroll">
+        <p class="dialog-intro">Tune what the interface emphasizes. The company name is a display label only; production identity must come from authenticated tenant access.</p>
+        <section class="settings-section" aria-labelledby="company-profile-title">
+          <div class="settings-heading"><span class="settings-index">01</span><div><h3 id="company-profile-title">Company profile</h3><p>Display and evidence emphasis</p></div></div>
+          <form id="profile-form" class="stack-form">
+          <label>Company display name
+            <input id="profile-company-name" name="company_name" maxlength="80" autocomplete="organization" placeholder="Your company name" required>
+            <small>Display label only. It does not establish tenant identity or authorization.</small>
+          </label>
+          <label>Operator display name
+            <input id="profile-operator-name" name="operator_name" maxlength="80" autocomplete="name" placeholder="Your name" required>
+            <small>Shown beneath the company name. Production authorization must not trust this display label.</small>
+          </label>
+          <label>Company website
+            <input id="profile-company-website" name="company_website" maxlength="240" type="url" placeholder="https://example.com" autocomplete="url">
+            <small>Optional branding link used on generated documents.</small>
+          </label>
+          <label>Most important detail
+            <input id="profile-important-detail" name="important_detail" minlength="2" maxlength="120" placeholder="For example: crowd size" required>
+          </label>
+          <label>Identity fields
+            <input id="profile-identity-fields" name="identity_fields" maxlength="400" placeholder="event name, date, address, suite" required>
+            <small>Comma-separated fields used to distinguish otherwise similar cases.</small>
+          </label>
+          <label>Risk posture
+            <select id="profile-risk-posture" name="risk_posture">
+              <option value="safety_first">Safety first (active default)</option>
+              <option value="custom_policy">Validated custom policy file (advanced)</option>
+            </select>
+            <small>This control does not create a new enforcement preset. A custom policy is active only after server-side validation.</small>
+          </label>
+          <div class="form-status" id="profile-status" role="status"></div>
+          <button class="primary-button" type="submit">Save display profile</button>
+          </form>
+        </section>
+
+        <form class="settings-section" id="operator-settings-form" aria-labelledby="local-preferences-title">
+          <div class="settings-heading"><span class="settings-index">02</span><div><h3 id="local-preferences-title">Operator settings</h3><p>Saved with the company profile</p></div></div>
+          <div class="local-setting-grid">
+            <label class="toggle-setting">
+              <span><strong>Voice responses</strong><small>Read new assistant replies aloud</small></span>
+              <input type="checkbox" id="voice-enabled" role="switch" aria-label="Voice responses">
+            </label>
+            <label class="number-setting">
+              <span><strong>Mailbox scan limit</strong><small>Used by Scan buttons below</small></span>
+              <input type="number" id="scan-limit" min="1" max="25" step="1" value="25" inputmode="numeric">
+            </label>
+            <label class="toggle-setting">
+              <span><strong>Auto-monitor while open</strong><small>Periodically checks configured websites and connected mailboxes</small></span>
+              <input type="checkbox" id="auto-monitor-enabled" role="switch" aria-label="Auto-monitor connected sources while ContextGate is open">
+            </label>
+            <label class="number-setting">
+              <span><strong>Monitor interval</strong><small>Minutes between checks; 1–1,440</small></span>
+              <input type="number" id="auto-monitor-minutes" min="1" max="1440" step="1" value="15" inputmode="numeric">
+            </label>
+            <label class="toggle-setting">
+              <span><strong>Company name on exports</strong><small>On by default; a chat request can override it once</small></span>
+              <input type="checkbox" id="document-company-header" role="switch" aria-label="Show company name on exported documents" checked>
+            </label>
+            <label class="footer-setting">Custom export footer
+              <input type="text" id="document-footer" maxlength="240" placeholder="Contact information or company disclaimer">
+            </label>
+          </div>
+          <div class="logo-setting">
+            <img id="company-logo-preview" alt="Current company logo preview" hidden>
+            <label>Company logo for documents
+              <input type="file" id="company-logo-file" accept="image/png,image/jpeg,.png,.jpg,.jpeg">
+              <small>PNG or JPEG, up to 1 MB; normalized locally without metadata.</small>
+            </label>
+            <div class="logo-actions">
+              <button class="compact-button" id="upload-company-logo" type="button">Save logo</button>
+              <button class="danger-button" id="remove-company-logo" type="button">Remove logo</button>
+            </div>
+            <div class="form-status" id="company-logo-status" role="status"></div>
+          </div>
+          <p class="local-only-note">Voice, monitoring, scan limit, and document branding are persisted by the local company-profile API. Auto-monitoring runs only while this browser command center and its local server remain open.</p>
+          <div class="auto-monitor-actions">
+            <button class="compact-button" id="auto-monitor-now" type="button">Check connected sources now</button>
+            <p class="form-status" id="auto-monitor-status" role="status">Auto-monitor is off.</p>
+          </div>
+          <div class="form-status" id="local-settings-status" role="status"></div>
+          <button class="primary-button" type="submit">Save operator settings</button>
+        </form>
+
+        <section class="settings-section" aria-labelledby="connected-accounts-title">
+          <div class="settings-heading"><span class="settings-index">03</span><div><h3 id="connected-accounts-title">Connected mailbox accounts</h3><p>Multiple read-only accounts support manual scans or optional auto-monitoring</p></div></div>
+
+          <div class="connector-block">
+            <header><div><span class="provider-mark google" aria-hidden="true">G</span><span><strong>Google</strong><small>Gmail OAuth</small></span></div><button class="compact-button" type="button" data-start-connector="google">Add Google account</button></header>
+            <div class="account-list" id="google-account-list"><p>No Google accounts connected.</p></div>
+            <details>
+              <summary>Configure Google OAuth client</summary>
+              <form id="google-configure-form" class="stack-form connector-config-form">
+                <label>OAuth client JSON
+                  <input type="file" id="google-client-json" accept="application/json,.json" required>
+                  <small>Sent only to the local connector configuration endpoint. Maximum 32 KB.</small>
+                </label>
+                <div class="form-status" id="google-configure-status" role="status"></div>
+                <button class="primary-button" type="submit">Save Google OAuth configuration</button>
+              </form>
+            </details>
+          </div>
+
+          <div class="connector-block">
+            <header><div><span class="provider-mark microsoft" aria-hidden="true">M</span><span><strong>Microsoft</strong><small>Microsoft 365 OAuth</small></span></div><button class="compact-button" type="button" data-start-connector="microsoft">Add Microsoft account</button></header>
+            <div class="account-list" id="microsoft-account-list"><p>No Microsoft accounts connected.</p></div>
+            <details>
+              <summary>Configure Microsoft OAuth client</summary>
+              <form id="microsoft-configure-form" class="stack-form connector-config-form">
+                <label>Application (client) ID
+                  <input type="text" id="microsoft-client-id" maxlength="200" autocomplete="off" required>
+                  <small>The local backend controls redirect URI, tenant selection, and token storage.</small>
+                </label>
+                <div class="form-status" id="microsoft-configure-status" role="status"></div>
+                <button class="primary-button" type="submit">Save Microsoft OAuth configuration</button>
+              </form>
+            </details>
+          </div>
+          <div class="form-status" id="connector-action-status" role="status"></div>
+        </section>
+
+        <section class="settings-section danger-zone" aria-labelledby="demo-reset-title">
+          <div class="settings-heading"><span class="settings-index">04</span><div><h3 id="demo-reset-title">Fictional demo data</h3><p>Reset only the bundled synthetic scenario workspace</p></div></div>
+          <p>This does not claim to erase company-memory databases, connector credentials, or audit-retention records.</p>
+          <button class="danger-button" id="demo-reset" type="button">Reset fictional demo</button>
+          <div class="form-status" id="demo-reset-status" role="status"></div>
+        </section>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="control-dialog" id="export-dialog" aria-labelledby="export-dialog-title">
+    <div class="dialog-shell compact-dialog">
+      <header class="dialog-header">
+        <div><span class="micro-label">LOCAL EXPORT</span><h2 id="export-dialog-title">Export control-room evidence</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close export controls">×</button>
+      </header>
+      <div class="dialog-scroll">
+        <p class="dialog-intro">Exports are built in this browser from the currently loaded state. Each case is labeled as fictional demo, scanned/uploaded evidence, or unspecified local evidence.</p>
+        <div class="export-grid">
+          <button class="export-action" id="export-html" type="button"><span aria-hidden="true">▤</span><span><strong>Download printable report (.html)</strong><small>Company, policy, totals, patterns, corrections, receipts, and evidence</small></span></button>
+          <button class="export-action" id="export-json" type="button"><span aria-hidden="true">{ }</span><span><strong>Download data/receipts (.json)</strong><small>Structured current-state export with provenance labels</small></span></button>
+          <button class="export-action" id="export-svg" type="button"><span aria-hidden="true">◉</span><span><strong>Download dashboard graphic (.svg)</strong><small>Portable decision totals and selected-case snapshot</small></span></button>
+          <button class="export-action" id="print-dashboard" type="button"><span aria-hidden="true">⌑</span><span><strong>Print / Save as PDF</strong><small>Uses the browser print dialog via window.print()</small></span></button>
+          <button class="export-action" id="email-summary" type="button"><span aria-hidden="true">✉</span><span><strong>Prepare email summary</strong><small>Opens a mailto draft only; attachments must be added manually</small></span></button>
+        </div>
+        <div class="boundary-note export-boundary"><strong>Nothing is sent automatically</strong><p>The email control prepares text in your default mail application. Review recipients and content, and add exported attachments yourself.</p></div>
+        <div class="form-status" id="export-status" role="status"></div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="control-dialog" id="layout-dialog" aria-labelledby="layout-dialog-title">
+    <div class="dialog-shell compact-dialog">
+      <header class="dialog-header">
+        <div><span class="micro-label">WORKSPACE LAYOUT</span><h2 id="layout-dialog-title">Layout</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close layout settings">×</button>
+      </header>
+      <div class="dialog-scroll">
+        <p class="dialog-intro">Choose a controlled workspace arrangement. Widths are clamped so panels cannot overlap or leave the desktop viewport.</p>
+        <form id="layout-form" class="stack-form">
+          <fieldset class="position-fieldset">
+            <legend>Chat position</legend>
+            <div class="segmented-control">
+              <label><input type="radio" name="chat_position" value="left"><span>Left</span></label>
+              <label><input type="radio" name="chat_position" value="middle"><span>Middle</span></label>
+              <label><input type="radio" name="chat_position" value="right" checked><span>Right</span></label>
+            </div>
+          </fieldset>
+          <label>Layout preset
+            <select id="layout-preset" name="layout_preset">
+              <option value="dashboard-focus">Dashboard focus</option>
+              <option value="balanced" selected>Balanced</option>
+              <option value="chat-focus">Chat focus</option>
+              <option value="custom" disabled>Custom widths</option>
+            </select>
+          </label>
+          <label class="range-setting">Rail width <output id="rail-width-output" for="rail-width">194 px</output>
+            <input type="range" id="rail-width" min="160" max="260" step="2" value="194">
+          </label>
+          <label class="range-setting">Chat width <output id="chat-width-output" for="chat-width">316 px</output>
+            <input type="range" id="chat-width" min="280" max="460" step="2" value="316">
+          </label>
+          <p class="local-only-note">Layout preferences are stored in this browser only and do not alter policy or server state.</p>
+          <div class="form-status" id="layout-status" role="status"></div>
+          <button class="primary-button" type="submit">Apply layout</button>
+        </form>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="control-dialog" id="sources-dialog" aria-labelledby="sources-dialog-title">
+    <div class="dialog-shell">
+      <header class="dialog-header">
+        <div><span class="micro-label">EVIDENCE INTAKE</span><h2 id="sources-dialog-title">Connect sources</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close source connections">×</button>
+      </header>
+      <div class="dialog-scroll">
+        <div class="source-grid" id="source-list">
+          <article class="source-card fictional"><span class="source-mark">DEMO</span><h3>Fictional scenario stream</h3><p>Bundled synthetic evidence for safe product testing.</p><strong>Available</strong></article>
+          <article class="source-card ready"><span class="source-mark">LIVE</span><h3>Local file upload</h3><p>Upload a supported file to the local intake API.</p><strong>Ready now</strong></article>
+          <article class="source-card unavailable"><span class="source-mark">OAUTH</span><h3>Gmail / Microsoft mailbox</h3><p>Connectors are implemented. OAuth setup requires this installation's Google Desktop OAuth JSON or Microsoft client ID. Tokens are memory-only; scans are read-only and can run manually or while auto-monitoring is enabled.</p><strong>OAuth setup required</strong></article>
+        </div>
+        <section class="website-source-panel" aria-labelledby="website-source-title">
+          <header class="website-source-heading">
+            <div class="website-source-title">
+              <span class="provider-mark website" aria-hidden="true">WEB</span>
+              <span><strong id="website-source-title">Public website intake</strong><small>Tell ContextGate exactly what to collect</small></span>
+            </div>
+            <span class="on-demand-badge"><i aria-hidden="true"></i> MANUAL / AUTO</span>
+          </header>
+          <p class="website-source-intro">Add a public webpage you are allowed to access, describe the evidence you need, then select Scan. ContextGate prefers structured data and does not run a durable background service, execute page scripts, or bypass logins and paywalls. Optional periodic rescans run only from the open command center.</p>
+          <form id="website-source-form" class="website-source-form">
+            <label>Public webpage URL
+              <input id="website-source-url" name="url" type="url" maxlength="2048" inputmode="url" autocomplete="url" placeholder="https://example.com/events" required>
+            </label>
+            <label>What data should ContextGate collect?
+              <textarea id="website-source-goal" name="extraction_goal" rows="2" minlength="3" maxlength="240" placeholder="Event names, dates, times, venue addresses, and registration links" required></textarea>
+            </label>
+            <button class="primary-button website-add-button" type="submit">Add website</button>
+          </form>
+          <div class="form-status" id="website-source-status" role="status" aria-live="polite"></div>
+          <div class="website-source-list" id="website-source-list" aria-live="polite">
+            <div class="website-source-empty"><span aria-hidden="true">＋</span><p>No public websites configured yet.</p></div>
+          </div>
+        </section>
+        <form id="upload-form" class="stack-form upload-form">
+          <label>Upload evidence file
+            <input id="upload-file" name="file" type="file" required accept=".txt,.md,.markdown,.json,.csv,.htm,.html,.xml,.eml,.pdf,.docx,.gif,.png,.jpg,.jpeg,.webp">
+            <small>Text, CSV/JSON, HTML/XML, exported email, PDF, Word, screenshot, or photo. Sent only to the local intake API; maximum 10 MiB.</small>
+          </label>
+          <div class="form-status" id="upload-form-status" role="status"></div>
+          <button class="primary-button" type="submit">Upload local evidence</button>
+        </form>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="control-dialog calendar-dialog" id="calendar-dialog" aria-labelledby="calendar-dialog-title">
+    <div class="dialog-shell calendar-shell">
+      <header class="dialog-header">
+        <div><span class="micro-label">VISIBLE EVENT INTELLIGENCE</span><h2 id="calendar-dialog-title">Calendar</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close calendar">×</button>
+      </header>
+      <div class="dialog-scroll calendar-dialog-body">
+        <div class="calendar-origin" id="calendar-origin" role="status">Loading visible event sources…</div>
+        <div class="calendar-toolbar">
+          <div class="calendar-month-controls" role="group" aria-label="Calendar month navigation">
+            <button class="icon-button" id="calendar-previous" type="button" aria-label="Previous month">‹</button>
+            <h3 id="calendar-month-label" aria-live="polite">Month</h3>
+            <button class="icon-button" id="calendar-next" type="button" aria-label="Next month">›</button>
+            <button class="compact-button" id="calendar-today" type="button">Today</button>
+          </div>
+          <div class="calendar-stats" aria-label="Calendar event totals">
+            <span><strong id="calendar-scheduled-count">0</strong> scheduled</span>
+            <span><strong id="calendar-unscheduled-count">0</strong> need dates</span>
+          </div>
+        </div>
+        <div class="calendar-workspace">
+          <section class="month-view" aria-labelledby="calendar-month-label">
+            <div class="calendar-weekdays" aria-hidden="true">
+              <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+            </div>
+            <div class="calendar-grid" id="calendar-grid" role="grid" aria-label="Event calendar"></div>
+          </section>
+          <aside class="calendar-inspector" aria-label="Selected calendar event">
+            <div id="calendar-event-detail" class="calendar-event-detail" aria-live="polite">
+              <div class="calendar-empty-detail"><span aria-hidden="true">◎</span><p>Select an event to inspect its grounded details and evidence reference.</p></div>
+            </div>
+            <details class="calendar-unscheduled-section" id="calendar-unscheduled-section">
+              <summary><span>Events needing a date</span><strong id="calendar-unscheduled-summary">0</strong></summary>
+              <div class="calendar-unscheduled-list" id="calendar-unscheduled-list"></div>
+            </details>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="control-dialog" id="memory-dialog" aria-labelledby="memory-dialog-title">
+    <div class="dialog-shell">
+      <header class="dialog-header">
+        <div><span class="micro-label">COMPANY MEMORY</span><h2 id="memory-dialog-title">Patterns &amp; remembered guidance</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close company memory">×</button>
+      </header>
+      <div class="dialog-scroll">
+        <div class="boundary-note"><strong>Advisory memory</strong><p>Patterns and operator guidance do not execute actions or weaken the deterministic gate.</p></div>
+        <div class="pattern-list" id="pattern-list" aria-live="polite">
+          <div class="empty-state"><p>No patterns loaded.</p></div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="control-dialog" id="advanced-dialog" aria-labelledby="advanced-dialog-title">
+    <div class="dialog-shell">
+      <header class="dialog-header">
+        <div><span class="micro-label">LOCAL DIAGNOSTICS</span><h2 id="advanced-dialog-title">Advanced Lab</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close advanced lab">×</button>
+      </header>
+      <div class="dialog-scroll">
+        <div class="diagnostic-grid">
+          <article><span>API HEALTH</span><strong id="health-detail">Checking</strong></article>
+          <article><span>ACTION MODE</span><strong>No external action</strong></article>
+          <article><span>POLICY</span><strong id="policy-detail">Safety first</strong></article>
+          <article><span>STATE TRANSPORT</span><strong>Local HTTP API</strong></article>
+        </div>
+        <div class="boundary-note"><strong>Safe test surface</strong><p>This panel reports local application state. It does not install connectors, send messages, publish content, or approve actions.</p></div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="control-dialog case-dialog" id="case-dialog" aria-labelledby="case-dialog-title">
+    <div class="dialog-shell">
+      <header class="dialog-header">
+        <div><span class="micro-label">CASE RECEIPT</span><h2 id="case-dialog-title">Case details</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close case details">×</button>
+      </header>
+      <div class="dialog-scroll">
+        <div id="case-detail-content" class="case-detail-content"></div>
+        <section class="correction-section" aria-labelledby="correction-title">
+          <h3 id="correction-title">Record a human correction</h3>
+          <p>Corrections are append-only and preserve the original deterministic receipt. They change only the advisory resolved view.</p>
+          <form id="correction-form" class="stack-form">
+            <label>Corrected outcome
+              <select id="corrected-outcome" name="corrected_outcome" required>
+                <option value="ALLOW">ALLOW</option>
+                <option value="REVIEW">REVIEW</option>
+                <option value="BLOCK">BLOCK</option>
+              </select>
+            </label>
+            <label>Reviewer
+              <input id="correction-reviewer" name="reviewer" maxlength="120" required autocomplete="name">
+            </label>
+            <label>Rationale
+              <textarea id="correction-rationale" name="rationale" rows="3" maxlength="1200" required></textarea>
+            </label>
+            <div class="form-status" id="correction-status" role="status"></div>
+            <button class="primary-button" type="submit">Confirm human correction</button>
+          </form>
+        </section>
+        <section class="retraction-section" id="retraction-section" hidden aria-labelledby="retraction-title">
+          <h3 id="retraction-title">Retract active correction</h3>
+          <form id="retraction-form" class="stack-form">
+            <label>Reason for retraction
+              <textarea id="retraction-reason" name="reason" rows="2" maxlength="800" required></textarea>
+            </label>
+            <div class="form-status" id="retraction-status" role="status"></div>
+            <button class="danger-button" type="submit">Retract correction</button>
+          </form>
+        </section>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="control-dialog" id="security-dialog" aria-labelledby="security-dialog-title">
+    <div class="dialog-shell compact-dialog">
+      <header class="dialog-header">
+        <div><span class="micro-label">BOUNDARIES</span><h2 id="security-dialog-title">Security, storage &amp; learning</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close security information">×</button>
+      </header>
+      <div class="dialog-scroll prose">
+        <div class="boundary-note"><strong>No external action</strong><p>Chat is advisory. It cannot publish, send, approve, or weaken the deterministic gate.</p></div>
+        <p>Local company memory and learned guidance may be stored in plaintext SQLite. A company deployment must bind the workspace to authenticated tenant access and add appropriate encryption, retention, backup, and deletion controls.</p>
+        <p>Saving guidance is explicit and reversible. Human corrections preserve the original receipt and affect only the resolved view for the exact matching case fingerprints.</p>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

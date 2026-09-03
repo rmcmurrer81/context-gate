@@ -2,7 +2,7 @@
 
 ContextGate can be installed inside a company environment and used as a Python decision gate with a company-owned source policy. The core evaluates structured evidence and action requests, returns `ALLOW`, `REVIEW`, or `BLOCK`, and binds the policy version and fingerprint into every decision receipt.
 
-The repository does **not** yet include a turnkey Gmail or Microsoft mailbox connector, an OCR service, an authenticated multi-user web service, or a production-ready Confluent deployment. The included Streamlit application is a local operator and evaluation surface; production systems should call the decision engine from a controlled service and place external actions behind its result.
+The repository includes a local HTML/CSS/JavaScript command center plus session-only Gmail and Microsoft OAuth connectors for read-only manual or while-open periodic mailbox scans. It does **not** yet include production OCR, an authenticated multi-user service, durable encrypted token storage, a durable scheduler, or a production-ready Confluent deployment. The older Streamlit proof lab remains available as an optional evaluation surface. Production systems should call the decision engine from a controlled service and place external actions behind its result.
 
 ## 1. Choose the deployment boundary
 
@@ -11,6 +11,8 @@ What is available now:
 - a deterministic Python decision engine with schema-validated models and strict untrusted-boundary examples;
 - a fail-closed, company-editable source policy;
 - JSON Schemas for context events, action requests, decisions, and reviews;
+- a local fixed-screen command center with company settings and evidence-grounded chat;
+- read-only Gmail and Microsoft authorization-code OAuth with PKCE, anti-forgery state, multiple in-memory account sessions, and manual or explicitly enabled while-open periodic scans;
 - local document intake with bounded extraction and content hashes;
 - append-only local review receipts and an integrity-linked audit file;
 - an optional one-way Kafka producer; and
@@ -59,7 +61,7 @@ $env:CONTEXTGATE_POLICY_PATH = (Resolve-Path .\config\source_policy.json).Path
 .\run.ps1
 ```
 
-The launcher creates `.venv`, installs the application dependencies, binds Streamlit to `127.0.0.1`, disables Streamlit usage telemetry, and opens the local app at [http://127.0.0.1:8501](http://127.0.0.1:8501).
+The launcher creates `.venv`, installs the application dependencies, binds the local command center to `127.0.0.1`, and opens it at [http://127.0.0.1:8501](http://127.0.0.1:8501). It does not expose the service on the local network. The optional `lab` task starts the legacy Streamlit proof surface with Streamlit's email prompt and usage telemetry disabled.
 
 If PowerShell blocks local scripts:
 
@@ -195,12 +197,14 @@ Both environment variables are configuration, not access control. The SQLite con
 
 ## 5. Connect company email safely
 
-The current repository can extract visible text from a user-supplied `.eml` file, but it does **not** implement live Gmail or Microsoft OAuth. Do not paste mailbox passwords, client secrets, access tokens, or refresh tokens into the app, policy JSON, source events, logs, or Git.
+The local command center implements authorization-code OAuth with PKCE and anti-forgery state for Gmail, Outlook.com/Hotmail, and Microsoft 365. It requests read-only Gmail or Microsoft Graph mail scopes, supports multiple connected accounts, and scans after an operator chooses **Scan** or explicitly enables **Auto-monitor while open**. The page clears that browser-controlled timer when it closes and pauses future checks after detecting that the local server is unavailable; it is not a production scheduler. An email address alone never authenticates an inbox, and ContextGate never asks for a mailbox password.
 
-A production mailbox connector needs:
+Each installation owner must first register a Google Desktop OAuth client and/or Microsoft Entra public client, then configure the public client details through **Sources** or **Settings**. Provider-hosted consent is the only sign-in path. The local connector keeps access and refresh tokens in server memory only, never returns them to the browser, and clears them when the process stops. Do not paste mailbox passwords, client secrets, access tokens, or refresh tokens into chat, policy JSON, source events, logs, reports, or Git. See the exact provider setup steps in [Company quick start](company_quickstart.md).
+
+Before treating this connector as a production mailbox service, a company owner must add:
 
 1. a registered application in the company's Google Cloud or Microsoft Entra tenant;
-2. exact HTTPS redirect URIs and an authorization-code flow with PKCE, anti-CSRF state, and provider-recommended token validation;
+2. approved redirect URIs, provider verification, PKCE, anti-CSRF state, and provider-recommended token and consent validation;
 3. the least-privilege read-only mail permission approved by the tenant administrator;
 4. an encrypted secret store for client credentials and per-account refresh tokens, with rotation and revocation;
 5. one non-secret `connection_id` per mailbox, bound to the company tenant and owner;
@@ -211,7 +215,7 @@ A production mailbox connector needs:
 
 Use delegated consent for individual accounts unless the company has explicitly approved broader access. Domain-wide delegation or application-wide mailbox permissions are high-impact and should not be the default.
 
-The connector should keep original mail in a private, access-controlled source store and emit only the minimum claim required for a decision. A `ContextEvent` should retain a stable connection ID, provider message ID/reference, received time, attachment digest where applicable, and available sender-authentication results. It should not carry a full inbox, full message body, token, or secret.
+A production connector should keep original mail in a private, access-controlled source store and emit only the minimum claim required for a decision. A `ContextEvent` should retain a stable connection ID, provider message ID/reference, received time, attachment digest where applicable, and available sender-authentication results. It should not carry a full inbox, full message body, token, or secret.
 
 SPF, DKIM, DMARC, a display name, or a claimed `source_type` alone does not prove that content is company-authoritative. A trusted adapter must stamp source identity from the authenticated connection and apply a company-managed sender/domain allowlist. Treat all other mail as `unverified` or `unknown`.
 

@@ -5,10 +5,11 @@ Sets up and runs ContextGate locally on Windows.
 .DESCRIPTION
 Creates .venv on first use, installs dependencies only when the requirements
 files change, and forces ContextGate's safe local mode. The default task starts
-the Streamlit application on localhost with usage telemetry disabled.
+the ContextGate web console on localhost. The lab task starts the legacy
+Streamlit operator lab with its email prompt and usage telemetry disabled.
 
 .PARAMETER Task
-One of: app (default), demo, acceptance, doctor, or test.
+One of: app (default), lab, demo, acceptance, doctor, or test.
 
 .PARAMETER Dev
 Install requirements-dev.txt instead of requirements.txt.
@@ -33,7 +34,7 @@ already prepared.
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("app", "demo", "acceptance", "doctor", "test")]
+    [ValidateSet("app", "lab", "demo", "acceptance", "doctor", "test")]
     [string]$Task = "app",
 
     [switch]$Dev,
@@ -106,12 +107,42 @@ if (-not $SkipInstall) {
 # remains an explicit, separate action and is never reached from this script.
 $env:CONTEXTGATE_MODE = "local"
 $env:PYTHONUTF8 = "1"
+$env:STREAMLIT_SERVER_SHOW_EMAIL_PROMPT = "false"
+$env:STREAMLIT_BROWSER_GATHER_USAGE_STATS = "false"
+
+$AppUrl = "http://127.0.0.1:8501"
+$HealthUrl = "$AppUrl/api/health"
+
+function Test-ContextGateWebConsole {
+    try {
+        $Response = Invoke-WebRequest -Uri $HealthUrl -Method Get -UseBasicParsing -TimeoutSec 2
+        if ($Response.StatusCode -lt 200 -or $Response.StatusCode -ge 300) {
+            return $false
+        }
+        $Payload = $Response.Content | ConvertFrom-Json -ErrorAction Stop
+        return (
+            $Payload.service -eq "ContextGate" -and
+            $Payload.status -eq "ok"
+        )
+    } catch {
+        return $false
+    }
+}
 
 switch ($Task) {
     "app" {
+        if (Test-ContextGateWebConsole) {
+            Write-Host "ContextGate is already running at $AppUrl"
+            Start-Process -FilePath $AppUrl
+            exit 0
+        }
+        & $VirtualPython -m context_gate.web_console
+    }
+    "lab" {
         & $VirtualPython -m streamlit run app.py `
             --server.address 127.0.0.1 `
             --server.maxUploadSize 10 `
+            --server.showEmailPrompt false `
             --browser.gatherUsageStats false
     }
     "demo" {
