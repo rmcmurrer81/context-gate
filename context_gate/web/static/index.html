@@ -42,6 +42,9 @@
       <div class="command-status" aria-label="System status">
         <span class="status-chip cyan"><i aria-hidden="true"></i><span id="policy-status">SAFETY-FIRST POLICY</span></span>
         <span class="status-chip"><i aria-hidden="true"></i><span id="engine-status">ENGINE CHECKING</span></span>
+        <button class="status-chip connectivity-chip unknown" id="connectivity-chip" type="button" data-open-dialog="connectivity-dialog" aria-controls="connectivity-dialog" aria-label="Network status unknown. Source checks are manual. Open connectivity details.">
+          <i aria-hidden="true"></i><span id="network-status">NETWORK UNKNOWN</span><span class="status-chip-divider" aria-hidden="true">·</span><span id="monitor-cadence">MANUAL</span>
+        </button>
         <span class="status-chip safe"><i aria-hidden="true"></i>No external action</span>
         <button class="compact-button calendar-button" type="button" data-open-dialog="calendar-dialog"><span aria-hidden="true">▦</span> Calendar</button>
         <button class="compact-button layout-button" type="button" data-open-dialog="layout-dialog"><span aria-hidden="true">▦</span> Layout</button>
@@ -124,27 +127,27 @@
           </div>
         </header>
 
-        <section class="kpi-grid" aria-label="Decision totals">
-          <article class="kpi-card total">
+        <section class="kpi-grid" aria-label="Decision totals and queue filters">
+          <button class="kpi-card total" type="button" data-kpi-filter="ALL" aria-pressed="false" aria-controls="case-queue">
             <div><span class="micro-label">EVALUATED</span><strong id="total-count">—</strong></div>
             <span class="kpi-glyph" aria-hidden="true">Σ</span>
-            <small>ACTIVE POLICY</small>
-          </article>
-          <article class="kpi-card allow">
+            <small>ALL CASES <span aria-hidden="true">↘</span></small>
+          </button>
+          <button class="kpi-card allow" type="button" data-kpi-filter="ALLOW" aria-pressed="false" aria-controls="case-queue">
             <div><span class="micro-label">PASSED GATE</span><strong id="allow-count">—</strong></div>
             <span class="kpi-glyph" aria-hidden="true">✓</span>
-            <small>ALLOW</small>
-          </article>
-          <article class="kpi-card review">
+            <small>SHOW ALLOW <span aria-hidden="true">↘</span></small>
+          </button>
+          <button class="kpi-card review" type="button" data-kpi-filter="REVIEW" aria-pressed="true" aria-controls="case-queue">
             <div><span class="micro-label">NEEDS ATTENTION</span><strong id="review-count">—</strong></div>
             <span class="kpi-glyph" aria-hidden="true">!</span>
-            <small>REVIEW</small>
-          </article>
-          <article class="kpi-card block">
+            <small>SHOW REVIEW <span aria-hidden="true">↘</span></small>
+          </button>
+          <button class="kpi-card block" type="button" data-kpi-filter="BLOCK" aria-pressed="false" aria-controls="case-queue">
             <div><span class="micro-label">SAFELY STOPPED</span><strong id="block-count">—</strong></div>
             <span class="kpi-glyph" aria-hidden="true">×</span>
-            <small>BLOCK</small>
-          </article>
+            <small>SHOW BLOCK <span aria-hidden="true">↘</span></small>
+          </button>
         </section>
 
         <section class="telemetry-grid">
@@ -171,7 +174,11 @@
 
           <article class="queue-panel surface" aria-labelledby="queue-title">
             <header class="panel-heading queue-heading">
-              <div><span class="micro-label">SIGNAL QUEUE</span><h2 id="queue-title">Cases</h2></div>
+              <div>
+                <span class="micro-label">SIGNAL QUEUE</span>
+                <h2 id="queue-title">Cases</h2>
+                <output class="queue-view-status" id="queue-view-status" aria-live="polite">REVIEW · loading</output>
+              </div>
               <div class="queue-tabs" role="group" aria-label="Filter cases by effective outcome">
                 <button type="button" data-queue-filter="REVIEW" aria-pressed="true">REVIEW</button>
                 <button type="button" data-queue-filter="ALL" aria-pressed="false">ALL</button>
@@ -179,7 +186,7 @@
                 <button type="button" data-queue-filter="BLOCK" aria-pressed="false">BLOCK</button>
               </div>
             </header>
-            <div class="queue-list" id="case-queue" aria-live="polite">
+            <div class="queue-list" id="case-queue" tabindex="-1" aria-live="polite">
               <div class="empty-state"><span class="loading-ring" aria-hidden="true"></span><p>Loading decision queue…</p></div>
             </div>
           </article>
@@ -345,33 +352,71 @@
           <div class="settings-heading"><span class="settings-index">03</span><div><h3 id="connected-accounts-title">Connected mailbox accounts</h3><p>Multiple read-only accounts support manual scans or optional auto-monitoring</p></div></div>
 
           <div class="connector-block">
-            <header><div><span class="provider-mark google" aria-hidden="true">G</span><span><strong>Google</strong><small>Gmail OAuth</small></span></div><button class="compact-button" type="button" data-start-connector="google">Add Google account</button></header>
+            <header><div><span class="provider-mark google" aria-hidden="true">G</span><span><strong>Google</strong><small>Gmail · read-only OAuth</small></span></div><button class="compact-button" type="button" data-start-connector="google">Connect Gmail</button></header>
             <div class="account-list" id="google-account-list"><p>No Google accounts connected.</p></div>
-            <details>
-              <summary>Configure Google OAuth client</summary>
+            <details id="google-oauth-config" class="oauth-admin-setup">
+              <summary><span>Administrator setup</span> · enable one-click Google sign-in</summary>
+              <div class="oauth-prerequisites">
+                <p><strong>This is a one-time product registration, not a step for every mailbox user.</strong> After the administrator saves the ContextGate client identity here, the normal <b>Connect Gmail</b> button opens Google's sign-in and consent page directly.</p>
+                <div class="oauth-action-links" aria-label="Google administrator setup links">
+                  <a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener noreferrer">1 · Enable Gmail API ↗</a>
+                  <a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener noreferrer">2 · Audience &amp; test users ↗</a>
+                  <a href="https://console.cloud.google.com/auth/clients/create" target="_blank" rel="noopener noreferrer">3 · Create Desktop client ↗</a>
+                </div>
+                <ol class="oauth-micro-checklist">
+                  <li>Create or select a Google Cloud project, enable the Gmail API, configure the Google Auth Platform audience, and add the Gmail addresses as test users while the app is in testing.</li>
+                  <li>Create an OAuth client with application type <strong>Desktop app</strong>. Copy its client ID and client secret from Google—no JSON upload is required here.</li>
+                  <li>Save once below. Then select <strong>Connect Gmail</strong>; account owners sign in only on Google's page and approve read-only access.</li>
+                </ol>
+              </div>
               <form id="google-configure-form" class="stack-form connector-config-form">
-                <label>OAuth client JSON
-                  <input type="file" id="google-client-json" accept="application/json,.json" required>
-                  <small>Sent only to the local connector configuration endpoint. Maximum 32 KB.</small>
+                <label>Google Desktop client ID
+                  <input type="text" id="google-client-id" maxlength="1024" autocomplete="off" aria-describedby="google-configure-status" placeholder="…apps.googleusercontent.com">
+                </label>
+                <label>Google Desktop client secret
+                  <input type="password" id="google-client-secret" maxlength="1024" autocomplete="new-password" aria-describedby="google-configure-status">
+                  <small>Saved locally in the Git-ignored <code>runtime/oauth_clients.json</code>; mailbox tokens remain memory-only. Company deployments should inject these values through a secret manager.</small>
                 </label>
                 <div class="form-status" id="google-configure-status" role="status"></div>
-                <button class="primary-button" type="submit">Save Google OAuth configuration</button>
+                <button class="primary-button" type="submit">Save Google app registration</button>
               </form>
+              <details class="oauth-json-fallback">
+                <summary>Already downloaded the Google Desktop JSON?</summary>
+                <form id="google-json-configure-form" class="stack-form connector-config-form">
+                  <label>Google Desktop OAuth JSON
+                    <input type="file" id="google-client-json" accept="application/json,.json" aria-describedby="google-configure-status">
+                    <small>Optional administrator shortcut. ContextGate extracts the same client ID and secret and saves them locally; mailbox users will still use Connect Gmail.</small>
+                  </label>
+                  <button class="compact-button" type="submit">Use downloaded Desktop JSON</button>
+                </form>
+              </details>
             </details>
           </div>
 
           <div class="connector-block">
-            <header><div><span class="provider-mark microsoft" aria-hidden="true">M</span><span><strong>Microsoft</strong><small>Microsoft 365 OAuth</small></span></div><button class="compact-button" type="button" data-start-connector="microsoft">Add Microsoft account</button></header>
+            <header><div><span class="provider-mark microsoft" aria-hidden="true">M</span><span><strong>Microsoft</strong><small>Hotmail · Outlook · Microsoft 365</small></span></div><button class="compact-button" type="button" data-start-connector="microsoft">Connect Microsoft / Hotmail</button></header>
             <div class="account-list" id="microsoft-account-list"><p>No Microsoft accounts connected.</p></div>
-            <details>
-              <summary>Configure Microsoft OAuth client</summary>
+            <details id="microsoft-oauth-config" class="oauth-admin-setup">
+              <summary><span>Administrator setup</span> · enable one-click Microsoft sign-in</summary>
+              <div class="oauth-prerequisites">
+                <p><strong>This is a one-time product registration, not a step for every mailbox user.</strong> After it is saved, <b>Connect Microsoft / Hotmail</b> opens Microsoft's normal account picker and consent page.</p>
+                <div class="oauth-action-links" aria-label="Microsoft administrator setup links">
+                  <a href="https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener noreferrer">1 · Open App registrations ↗</a>
+                  <a href="https://learn.microsoft.com/en-us/graph/auth-register-app-v2" target="_blank" rel="noopener noreferrer">Registration reference ↗</a>
+                </div>
+                <ol class="oauth-micro-checklist">
+                  <li>Register <strong>ContextGate</strong> for organizational directories and personal Microsoft accounts; enable public-client flows.</li>
+                  <li>Add the mobile/desktop redirect <code>http://localhost:8501/oauth/microsoft/callback</code> and delegated <code>User.Read</code> plus <code>Mail.Read</code> permissions.</li>
+                  <li>Copy the Application (client) ID, save it once below, then use <strong>Connect Microsoft / Hotmail</strong>.</li>
+                </ol>
+              </div>
               <form id="microsoft-configure-form" class="stack-form connector-config-form">
                 <label>Application (client) ID
-                  <input type="text" id="microsoft-client-id" maxlength="200" autocomplete="off" required>
-                  <small>The local backend controls redirect URI, tenant selection, and token storage.</small>
+                  <input type="text" id="microsoft-client-id" maxlength="200" autocomplete="off" aria-describedby="microsoft-configure-status">
+                  <small>Saved locally in the Git-ignored <code>runtime/oauth_clients.json</code>. No mailbox password is collected.</small>
                 </label>
                 <div class="form-status" id="microsoft-configure-status" role="status"></div>
-                <button class="primary-button" type="submit">Save Microsoft OAuth configuration</button>
+                <button class="primary-button" type="submit">Save Microsoft app registration</button>
               </form>
             </details>
           </div>
@@ -565,6 +610,25 @@
           <article><span>STATE TRANSPORT</span><strong>Local HTTP API</strong></article>
         </div>
         <div class="boundary-note"><strong>Safe test surface</strong><p>This panel reports local application state. It does not install connectors, send messages, publish content, or approve actions.</p></div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="control-dialog" id="connectivity-dialog" aria-labelledby="connectivity-dialog-title">
+    <div class="dialog-shell compact-dialog connectivity-dialog-shell">
+      <header class="dialog-header">
+        <div><span class="micro-label">CONNECTION CLARITY</span><h2 id="connectivity-dialog-title">Network &amp; source-check status</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close connectivity details">×</button>
+      </header>
+      <div class="dialog-scroll">
+        <div class="boundary-note"><strong>Three separate signals</strong><p>Local engine health, browser-reported network availability, and actual source reachability are not the same thing.</p></div>
+        <div class="diagnostic-grid connectivity-grid">
+          <article><span>LOCAL ENGINE</span><strong id="connectivity-engine-detail">Checking local API</strong></article>
+          <article><span>BROWSER / OS NETWORK</span><strong id="connectivity-network-detail">Network signal unknown</strong></article>
+          <article><span>SOURCE CHECK CADENCE</span><strong id="connectivity-cadence-detail">Manual scans</strong></article>
+          <article><span>LAST / NEXT SOURCE CHECK</span><strong id="connectivity-source-check-detail">No source check has run in this browser session.</strong></article>
+        </div>
+        <p class="connectivity-truth-note"><strong>What these mean:</strong> <b>ENGINE OK</b> only confirms that the local ContextGate server answered. <b>NETWORK ONLINE</b> is the browser/operating-system signal from <code>navigator.onLine</code>; it is not a verified website or provider probe. A website or mailbox is proven reachable only when its actual scan succeeds. Automatic checks run only while this page and its local server remain open.</p>
       </div>
     </div>
   </dialog>

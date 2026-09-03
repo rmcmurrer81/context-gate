@@ -601,6 +601,168 @@ class SourceCatalog:
             "fictional": all(item.fictional for item in visible_records),
         }
 
+    def answer_inventory_question(self, question: str) -> dict[str, object] | None:
+        """Summarize the visible catalog for ordinary data-inventory questions.
+
+        This deliberately recognizes only bounded inventory wording. Case-specific
+        provenance questions and commands continue to the more specific chat routes.
+        """
+
+        if not isinstance(question, str) or len(question) > 2_000:
+            return None
+        normalized = _normal(question)
+        eventbrite = r"eventbr(?:ite|ight)"
+        noun = (
+            r"(?:sources? and data|data and sources?|sources? data|data sources?|"
+            r"source data|data|information|records?|items?|events?|sources?)"
+        )
+        asks_eventbrite_inventory = any(
+            re.fullmatch(pattern, normalized)
+            for pattern in (
+                (
+                    rf"(?:what|which)(?: {noun})? (?:did|do) you "
+                    rf"(?:get|collect|find|have|receive) from (?:the )?{eventbrite}"
+                ),
+                (
+                    rf"(?:what|which)(?: {noun})? have you "
+                    rf"(?:got|gotten|collected|found|received) from "
+                    rf"(?:the )?{eventbrite}"
+                ),
+                (
+                    rf"(?:show|tell)(?: me)? what you "
+                    rf"(?:got|get|collected|collect|found|have|received) from "
+                    rf"(?:the )?{eventbrite}"
+                ),
+            )
+        )
+        asks_general_inventory = bool(
+            re.fullmatch(
+                rf"(?:what|which) {noun} "
+                r"(?:are you (?:collecting|tracking|holding|using)|"
+                r"do you (?:collect|have|track)|"
+                r"have you (?:collected|got|gotten|stored))",
+                normalized,
+            )
+            or re.fullmatch(
+                r"what (?:exactly )?are you (?:collecting|tracking)", normalized
+            )
+            or re.fullmatch(
+                rf"(?:show|list)(?: me)? (?:your|the) (?:current |visible )?{noun}",
+                normalized,
+            )
+            or re.fullmatch(
+                rf"tell me what (?:current |visible )?{noun} you have", normalized
+            )
+        )
+        if not asks_eventbrite_inventory and not asks_general_inventory:
+            return None
+
+        records = self.records()
+        unique: dict[str, SourceRecord] = {}
+        for item in records:
+            unique.setdefault(item.event_key, item)
+        fictional = bool(records) and all(item.fictional for item in records)
+        mode = (
+            "fictional demo inbox"
+            if fictional
+            else "currently visible scanned or uploaded sources"
+        )
+
+        if asks_eventbrite_inventory:
+            matching_messages = [
+                item for item in records if item.source_name.casefold() == "eventbrite"
+            ]
+            matching_events: dict[str, SourceRecord] = {}
+            for item in matching_messages:
+                matching_events.setdefault(item.event_key, item)
+            selected = list(matching_events.values())
+            if selected:
+                rows = "; ".join(
+                    f"{item.title} — {item.location}; "
+                    f"{item.event_date or 'date not found in source'}"
+                    for item in selected
+                )
+                duplicate_count = len(matching_messages) - len(selected)
+                duplicate_note = (
+                    f" I treated {duplicate_count} additional message"
+                    f"{'s' if duplicate_count != 1 else ''} as "
+                    "duplicate/update evidence rather than another event."
+                    if duplicate_count
+                    else ""
+                )
+                text = (
+                    f"From Eventbrite, I have {len(selected)} distinct visible event"
+                    f"{'s' if len(selected) != 1 else ''} across "
+                    f"{len(matching_messages)} source record"
+                    f"{'s' if len(matching_messages) != 1 else ''} in the {mode}: "
+                    f"{rows}.{duplicate_note}"
+                )
+            else:
+                text = (
+                    f"I have no visible Eventbrite records in the {mode}. Hidden or "
+                    "deleted data stays excluded, and I will not invent items."
+                )
+        else:
+            selected = list(unique.values())[:6]
+            if selected:
+                source_counts = Counter(item.source_name for item in unique.values())
+                location_counts = Counter(item.location for item in unique.values())
+                sources = "; ".join(
+                    f"{name} {count}" for name, count in sorted(source_counts.items())
+                )
+                locations = "; ".join(
+                    f"{name} {count}" for name, count in sorted(location_counts.items())
+                )
+                rows = "; ".join(
+                    f"{item.title} — {item.source_name}, {item.location}"
+                    for item in selected
+                )
+                duplicate_count = len(records) - len(unique)
+                duplicate_note = (
+                    f" {duplicate_count} duplicate/update source record"
+                    f"{'s are' if duplicate_count != 1 else ' is'} excluded from "
+                    "the distinct-event total."
+                    if duplicate_count
+                    else ""
+                )
+                remaining = len(unique) - len(selected)
+                remaining_note = (
+                    f" {remaining} more distinct event"
+                    f"{'s are' if remaining != 1 else ' is'} available in Calendar."
+                    if remaining
+                    else ""
+                )
+                text = (
+                    f"The {mode} contains {len(records)} visible source record"
+                    f"{'s' if len(records) != 1 else ''} representing "
+                    f"{len(unique)} distinct event"
+                    f"{'s' if len(unique) != 1 else ''}.{duplicate_note} "
+                    f"By source: {sources}. By location: {locations}. "
+                    f"Showing {len(selected)} items: {rows}.{remaining_note}"
+                )
+            else:
+                text = (
+                    "I have no visible source data in the current catalog. Connect, "
+                    "scan, or upload a source; I will not invent records or provenance."
+                )
+
+        evidence = [
+            {
+                "title": item.title,
+                "source": item.source_name,
+                "location": item.location,
+                "date": item.event_date or "Date not found in source",
+                "reference": item.evidence_reference,
+            }
+            for item in selected
+        ]
+        return {
+            "text": text,
+            "evidence": evidence,
+            "query_kind": "eventbrite" if asks_eventbrite_inventory else "catalog",
+            "fictional": fictional,
+        }
+
     def calendar_events(self) -> list[dict[str, object]]:
         """Return one visible, grounded record per event for calendar display.
 

@@ -1,10 +1,10 @@
-"""Session-only Gmail and Microsoft mailbox OAuth connectors.
+"""Read-only Gmail and Microsoft mailbox OAuth connectors.
 
 The connectors deliberately use authorization-code + PKCE in the user's system
-browser and request read-only scopes.  Access and refresh tokens are held in
-memory only and disappear when the local server stops.  Client registration is
-installation-specific and can be provided through environment variables or the
-local setup UI; no shared credential is embedded in this repository.
+browser and request read-only scopes. Access and refresh tokens are held in
+memory only and disappear when the local server stops. Client registration is
+installation-specific and can be provided through environment variables or a
+Git-ignored local administrator setup; no shared credential is embedded here.
 """
 
 from __future__ import annotations
@@ -247,9 +247,40 @@ class EmailOAuthManager:
                 raise EmailConnectorError(
                     "Google Desktop OAuth JSON must allow a localhost loopback redirect."
                 )
+        self.configure_google_credentials(
+            client_id,
+            client_secret=client_secret,
+            redirect_host=redirect_host,
+        )
+
+    def configure_google_credentials(
+        self,
+        client_id: str,
+        *,
+        client_secret: str = "",
+        redirect_host: str = "127.0.0.1",
+    ) -> None:
+        """Set a Google Desktop-app registration without requiring a JSON upload."""
+
+        client_id = _clean_identifier(
+            client_id,
+            label="Google client ID",
+            limit=1024,
+        )
+        if any(character.isspace() for character in client_id):
+            raise EmailConnectorError("Google client ID is invalid.")
+        cleaned_secret = ""
+        if client_secret:
+            cleaned_secret = _clean_identifier(
+                client_secret,
+                label="Google client secret",
+                limit=1024,
+            )
+        if redirect_host not in {"127.0.0.1", "localhost"}:
+            raise EmailConnectorError("Google redirect host must be local.")
         with self._lock:
             self._google_client_id = client_id
-            self._google_client_secret = client_secret
+            self._google_client_secret = cleaned_secret
             self._google_redirect_host = redirect_host
 
     def configure_microsoft(self, client_id: str) -> None:

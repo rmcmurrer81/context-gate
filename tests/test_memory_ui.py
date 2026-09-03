@@ -52,7 +52,11 @@ def test_memory_ui_seed_review_correction_and_tenant_isolation(
     db_path = tmp_path / "company-memory.sqlite3"
     monkeypatch.setenv(MEMORY_PATH_ENV, str(db_path))
 
-    app = AppTest.from_file(APP_PATH, default_timeout=20).run()
+    # This legacy Streamlit lab performs its full module render before the first
+    # widget delta. Cold Windows runners can legitimately take just over 20
+    # seconds under concurrent browser/PowerPoint load, so give startup enough
+    # headroom while preserving every behavioral assertion below.
+    app = AppTest.from_file(APP_PATH, default_timeout=40).run()
     assert not app.exception
     assert "persistent local SQLite stored as plaintext" in _rendered_text(app)
     assert "authentication must bind the tenant ID" in _rendered_text(app)

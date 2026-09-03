@@ -50,7 +50,7 @@ bash run.sh acceptance
 
 For workspace and live-mail setup, see the [company quick start](docs/company_quickstart.md). For deployment hardening, secrets boundaries, upgrades, and rollback, see [Company setup and operations](docs/company_setup.md).
 
-For a timed, click-by-click presentation, use the [solo hackathon demo script](docs/demo_script.md). The shorter [90-second judge path](docs/judge_start_here.md) is useful for acceptance checks and offline command-line backup.
+For a timed, click-by-click presentation, use the [solo hackathon demo script](docs/demo_script.md). The shorter [90-second judge path](docs/judge_start_here.md) is useful for acceptance checks and offline command-line backup. A ready-to-present PowerPoint is included at [ContextGate Hackathon Pitch Deck](docs/pitch-deck/ContextGate-Hackathon-Pitch-Deck.pptx).
 
 ## Working screenshots
 
@@ -84,6 +84,18 @@ These images were captured from the tested local build with fictional data:
 
 ![ContextGate answering grouped sales totals from uploaded evidence](docs/screenshots/07-sales-intelligence.png)
 
+### Grounded Eventbrite inventory in chat
+
+![ContextGate answering from the deduplicated Eventbrite evidence catalog](docs/screenshots/08-grounded-eventbrite-chat.png)
+
+### Clickable Eventbrite pattern details
+
+![ContextGate pattern drill-down showing the five distinct Eventbrite events](docs/screenshots/09-eventbrite-pattern-drilldown.png)
+
+### Email OAuth setup guidance without a blank waiting tab
+
+![ContextGate explaining the required Google OAuth application setup](docs/screenshots/10-email-oauth-guidance.png)
+
 ## Configure your company policy
 
 Copy the supplied policy template; do not edit the tracked example in place.
@@ -115,6 +127,8 @@ Never put passwords, OAuth tokens, client secrets, email addresses, or message b
 ## One-screen command center
 
 The dark command center keeps the company identity, evidence rail, decision queue, patterns, and **Ask ContextGate** chat visible without page scrolling. Choose **Layout** to put chat on the left, middle, or right; select a focus preset; or resize the evidence and chat panels. Choose **Settings** to change the company/operator names, company website and logo, export header and footer, important detail, entity-match fields, risk posture, voice, scan limit, optional auto-monitor interval, and connected accounts. Repository defaults stay neutral; for example, a presenter's local kit can be branded as **Kira Labs**, use `https://kiralabs.org`, and display its logo without changing source code.
+
+The header keeps connection signals separate: **ENGINE OK** means only that the local ContextGate API answered; **NETWORK ONLINE/OFFLINE** is the browser/operating-system `navigator.onLine` signal, not a verified provider probe; and **MANUAL** or **AUTO · N MIN** states the source-check cadence. Select the network/cadence pill for details. Only a successful website or mailbox scan proves that source was reachable, and automatic checks run only while the page and local server remain open—ContextGate does not add background heartbeat traffic.
 
 The dashboard evaluates the fictional case catalog with the active company policy and shows live totals for:
 
@@ -220,9 +234,15 @@ The local app accepts text, Markdown, CSV, JSON, HTML, XML, exported `.eml` emai
 - A user can state the exact visible claim and create an `UNVERIFIED` Kafka-ready candidate linked to the original artifact hash.
 - Upload bytes are not saved by the application.
 
-For live Gmail, Outlook.com/Hotmail, or Microsoft 365 accounts, use **Sources** or **Settings** to configure the installation's registered OAuth client and then choose **Add account**. ContextGate opens the provider's real authorization-code + PKCE consent screen, requests read-only Gmail or Microsoft Graph mail access, supports multiple accounts, scans manually or on the saved while-open interval, and lets the operator remove an account. An address alone never authenticates an inbox, and mailbox passwords are never requested.
+For live Gmail, Outlook.com/Hotmail, or Microsoft 365 accounts, an administrator registers the ContextGate application with the provider once; ordinary users then choose **Connect Gmail** or **Connect Microsoft / Hotmail** and sign in on the provider's real authorization-code + PKCE consent screen. ContextGate requests read-only Gmail or Microsoft Graph mail access, supports multiple accounts, scans manually or on the saved while-open interval, and lets the operator remove an account. An address alone never authenticates an inbox, and mailbox passwords are never requested.
 
-The hackathon build keeps access and refresh tokens only in server memory, so reconnect after a restart. A production deployment must move them to an encrypted, tenant-bound secret store and complete the provider's app verification and consent requirements. Exact setup steps are in the [company quick start](docs/company_quickstart.md), and the broader adapter contract is in [Information and connector intake](docs/ingestion_connectors.md).
+The interface checks that the provider client is configured before opening a sign-in window. Missing setup expands a clearly labeled one-time **Administrator setup** panel with direct Google Cloud or Microsoft Entra links, so it never strands the user on a blank waiting tab. Google administrators enable the Gmail API, configure the audience/test users, create a **Desktop app** client, and either download its JSON for safekeeping or copy its client ID and secret into ContextGate. Microsoft supplies an Application (client) ID rather than a Google-style file. The registered app identity persists only in the Git-ignored local `runtime/oauth_clients.json`; mailbox access and refresh tokens remain memory-only, so reconnect after a restart. The public repository contains no provider credentials or mailbox data. A production deployment should inject the app identity and encrypted tenant-bound tokens through a secret manager and complete each provider's verification and consent requirements. Exact direct links, file/client-ID steps, and troubleshooting are in the [company quick start](docs/company_quickstart.md), and the broader adapter contract is in [Information and connector intake](docs/ingestion_connectors.md).
+
+To obtain the provider identity for a fresh installation:
+
+1. **Google:** open the [Gmail API library](https://console.cloud.google.com/apis/library/gmail.googleapis.com), enable it in a Cloud project, configure [audience and test users](https://console.cloud.google.com/auth/audience), then [create a Desktop OAuth client](https://console.cloud.google.com/auth/clients/create). Google's client dialog lets the administrator copy the client ID/secret and download the JSON credential file. ContextGate's current administrator form accepts the copied values, so ordinary mailbox users never upload that file.
+2. **Microsoft / Hotmail:** open [Microsoft Entra App registrations](https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade), register ContextGate for the needed work/school and personal account types, add `http://localhost:8501/oauth/microsoft/callback` as a mobile/desktop redirect, enable public-client flow, and add delegated `User.Read` plus `Mail.Read`. Microsoft gives the administrator an Application (client) ID; it does not issue the Google-style JSON file.
+3. Save that one-time identity under **Administrator setup**. The regular provider button then goes directly to Google or Microsoft's sign-in page. Provider review for broad public distribution may take time, so the bundled hackathon path remains fully usable with fictional evidence, local uploads, and permitted public websites when live mail is not configured.
 
 For public website evidence, open **Connect sources**, enter one public HTTP or HTTPS URL plus a short extraction goal, choose **Add website**, and then select **Scan** when you want a fresh fetch. ContextGate parses Schema.org JSON-LD `Event` data and iCalendar events. If neither is available, it returns bounded page-title, metadata, and visible-text evidence rather than inventing event fields; only structured event records enter the event catalog.
 
@@ -266,6 +286,8 @@ flowchart LR
 ```
 
 The model is deliberately outside the enforcement boundary. It may explain an existing receipt, but schema validation prevents its prose from changing the decision, risk, classification, authoritative value, evidence IDs, or approval requirement.
+
+For model context, ContextGate follows a **right context, with proof** pattern: it retrieves only records relevant to the current question or tracking topic, deduplicates updates, carries source authority and event time, flags conflicts, and produces a compact evidence packet with stable references. The assistant receives that bounded packet instead of a raw inbox or unlimited source dump. Explicit human guidance can improve later explanations while the original evidence and decision receipts remain attributable.
 
 ### Enforcement invariants
 

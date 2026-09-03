@@ -1,5 +1,31 @@
+((root) => {
+  "use strict";
+
+  function networkLabel(onLine) {
+    if (typeof onLine !== "boolean") return "NETWORK UNKNOWN";
+    return onLine ? "NETWORK ONLINE" : "NETWORK OFFLINE";
+  }
+
+  function cadenceLabel(autoEnabled, minutes) {
+    const enabled = autoEnabled === true || autoEnabled === "true";
+    if (!enabled) return "MANUAL";
+    const parsed = Number.parseInt(minutes, 10);
+    const normalized = Math.min(1440, Math.max(1, Number.isFinite(parsed) ? parsed : 15));
+    return `AUTO · ${normalized} MIN`;
+  }
+
+  Object.defineProperty(root, "ContextGateConnectivity", {
+    configurable: false,
+    enumerable: false,
+    writable: false,
+    value: Object.freeze({ cadenceLabel, networkLabel }),
+  });
+})(window);
+
 (() => {
   "use strict";
+
+  const CONNECTIVITY = window.ContextGateConnectivity;
 
   const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
   const OUTCOME_COLORS = {
@@ -19,6 +45,8 @@
     health: null,
     activeFilter: "REVIEW",
     selectedCaseId: null,
+    caseDialogReturnCaseId: null,
+    expandedPatternKey: null,
     calendarMonth: null,
     selectedCalendarEventId: null,
     calendarSelectionInitialized: false,
@@ -27,6 +55,7 @@
     autoMonitorRunning: false,
     autoMonitorLastResult: "",
     autoMonitorLastFailed: false,
+    autoMonitorNextCheckAt: null,
   };
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -282,6 +311,7 @@
   function setFormStatus(id, message = "", isError = false) {
     const status = $(`#${id}`);
     if (!status) return;
+    status.classList.remove("oauth-setup-guidance");
     status.textContent = message;
     status.classList.toggle("error", isError);
   }
@@ -357,6 +387,39 @@
       "aria-label",
       `${totals.TOTAL} total decisions: ${totals.ALLOW} allow, ${totals.REVIEW} review, ${totals.BLOCK} block`,
     );
+
+    const filterCounts = {
+      ALL: totals.TOTAL,
+      ALLOW: totals.ALLOW,
+      REVIEW: totals.REVIEW,
+      BLOCK: totals.BLOCK,
+    };
+    $$('[data-kpi-filter]').forEach((button) => {
+      const filter = safeText(button.dataset.kpiFilter, "ALL").toUpperCase();
+      const count = filterCounts[filter] ?? 0;
+      const ariaLabel = filter === "ALL"
+        ? `Show all ${count} evaluated cases in the queue`
+        : `Show ${count} ${filter.toLowerCase()} case${count === 1 ? "" : "s"} in the queue`;
+      button.setAttribute("aria-label", ariaLabel);
+      button.setAttribute("aria-pressed", String(filter === view.activeFilter));
+    });
+  }
+
+  function queueFilterLabel(filter) {
+    return filter === "ALL" ? "ALL CASES" : filter;
+  }
+
+  function syncQueueControls(caseCount) {
+    $$('[data-queue-filter]').forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.queueFilter === view.activeFilter));
+    });
+    $$('[data-kpi-filter]').forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.kpiFilter === view.activeFilter));
+    });
+    const status = $("#queue-view-status");
+    if (status) {
+      status.textContent = `${queueFilterLabel(view.activeFilter)} · ${caseCount} CASE${caseCount === 1 ? "" : "S"}`;
+    }
   }
 
   function queueCases() {
@@ -368,6 +431,7 @@
     const container = $("#case-queue");
     container.replaceChildren();
     const cases = queueCases();
+    syncQueueControls(cases.length);
     if (!cases.length) {
       const empty = element("div", "empty-state");
       empty.append(element("p", "", `No ${view.activeFilter === "ALL" ? "" : `${view.activeFilter} `}cases in the active view.`));
@@ -382,8 +446,13 @@
       button.type = "button";
       button.dataset.caseId = id;
       button.style.setProperty("--status-color", OUTCOME_COLORS[outcome] ?? OUTCOME_COLORS.UNKNOWN);
-      button.setAttribute("aria-label", `Select ${id}, ${caseTitle(item)}, ${outcome}`);
-      if (id === caseId(selectedCase())) button.classList.add("selected");
+      const isSelected = id === caseId(selectedCase());
+      button.setAttribute(
+        "aria-label",
+        `${isSelected ? "Selected. " : ""}Open details for ${id}, ${caseTitle(item)}, ${outcome}`,
+      );
+      if (isSelected) button.setAttribute("aria-current", "true");
+      if (isSelected) button.classList.add("selected");
 
       button.append(element("span", "case-accent"));
       const main = element("span", "case-row-main");
@@ -396,9 +465,11 @@
       if (activeCorrection(item)) main.append(element("span", "correction-flag", "HUMAN-CORRECTED"));
       button.append(main);
 
-      const badge = element("span", `outcome-badge ${outcomeClass(outcome)}`, outcome);
-      button.append(badge);
-      button.addEventListener("click", () => selectCase(id, button));
+      const status = element("span", "case-row-status");
+      status.append(element("span", `outcome-badge ${outcomeClass(outcome)}`, outcome));
+      status.append(element("span", "case-row-cue", isSelected ? "SELECTED · OPEN ↗" : "DETAILS ↗"));
+      button.append(status);
+      button.addEventListener("click", () => selectCase(id));
       container.append(button);
     });
   }
@@ -528,6 +599,11 @@
     return Array.isArray(providerState?.accounts) ? providerState.accounts : [];
   }
 
+  function connectorIsConfigured(provider) {
+    const configured = view.state?.connectors?.[provider]?.configured;
+    return configured === true || configured === "true";
+  }
+
   function accountIdentifier(account) {
     if (typeof account === "string") return account;
     return safeText(account?.account ?? account?.email ?? account?.account_id ?? account?.id ?? account?.username, "");
@@ -575,6 +651,19 @@
   function renderConnectors() {
     renderConnectorAccounts("google");
     renderConnectorAccounts("microsoft");
+    $$('[data-start-connector]').forEach((button) => {
+      const provider = safeText(button.dataset.startConnector, "").toLowerCase();
+      const providerLabel = provider === "google" ? "Gmail" : "Microsoft / Hotmail";
+      const configured = connectorIsConfigured(provider);
+      button.textContent = `Connect ${providerLabel}`;
+      button.classList.toggle("connector-needs-setup", !configured);
+      button.setAttribute(
+        "aria-label",
+        configured
+          ? `Connect another ${providerLabel} mailbox account through the provider`
+          : `Connect ${providerLabel}; one-time administrator app registration is required on this installation`,
+      );
+    });
   }
 
   function websiteSourceId(source) {
@@ -681,6 +770,123 @@
     return [];
   }
 
+  function patternKey(item, index) {
+    return safeText(item?.pattern_id ?? item?.id, `pattern-${index + 1}`);
+  }
+
+  function derivedPatternItems(item) {
+    const label = safeText(item?.label ?? item?.name ?? item?.field ?? item?.type, "").toLowerCase();
+    const events = calendarEvents();
+    if (label.includes("distinct event")) return events;
+    if (label.includes("eventbrite")) {
+      return events.filter((event) => safeText(event?.source_name ?? event?.source, "").toLowerCase().includes("eventbrite"));
+    }
+    if (label.includes("new york") || /\bnyc\b/.test(label)) {
+      const newYorkAliases = /\b(new york(?: city)?|nyc|manhattan|brooklyn|queens|bronx|staten island)\b/i;
+      return events.filter((event) => newYorkAliases.test([
+        event?.location,
+        event?.address,
+        event?.title,
+      ].map((value) => safeText(value, "")).join(" ")));
+    }
+    if (label.includes("hidden source")) {
+      return (view.state?.company?.hidden_sources ?? []).map((source) => ({
+        title: safeText(source, "Hidden source"),
+        detail: "Saved but excluded from the active view.",
+      }));
+    }
+    if (label.includes("deleted source")) {
+      return (view.state?.company?.deleted_sources ?? []).map((source) => ({
+        title: safeText(source, "Deleted source"),
+        detail: "Excluded by an explicit source-deletion instruction.",
+      }));
+    }
+    return [];
+  }
+
+  function patternItems(item) {
+    const explicit = item?.items
+      ?? item?.evidence_items
+      ?? item?.records
+      ?? item?.observations
+      ?? item?.contributors;
+    if (Array.isArray(explicit)) {
+      return explicit.map((value) => (value && typeof value === "object" ? value : { title: value }));
+    }
+    return derivedPatternItems(item);
+  }
+
+  function patternItemTitle(item, index) {
+    return safeText(
+      item?.title
+      ?? item?.name
+      ?? item?.label
+      ?? item?.event_name
+      ?? item?.subject
+      ?? item?.source_name,
+      `Evidence item ${index + 1}`,
+    );
+  }
+
+  function patternItemDetail(item) {
+    return safeText(
+      item?.detail
+      ?? item?.description
+      ?? item?.summary
+      ?? item?.formula
+      ?? item?.value,
+      "",
+    );
+  }
+
+  function patternItemMetadata(item) {
+    const values = [
+      item?.organization,
+      item?.source_name ?? item?.source,
+      item?.location,
+      item?.date,
+      item?.time,
+      item?.address,
+      item?.status,
+      item?.fictional === true ? "FICTIONAL DEMO" : "",
+    ].map((value) => safeText(value, "")).filter(Boolean);
+    return [...new Set(values)].join(" · ");
+  }
+
+  function renderPatternEvidence(container, item, items, label) {
+    const heading = element(
+      "strong",
+      "pattern-detail-heading",
+      safeText(item?.detail_label, `Evidence behind ${label}`),
+    );
+    container.append(heading);
+    if (!items.length) {
+      container.append(element(
+        "p",
+        "pattern-detail-empty",
+        "This snapshot contains the aggregate pattern but no item-level records. No supporting items will be invented.",
+      ));
+      return;
+    }
+
+    const list = element("ol", "pattern-evidence-list");
+    items.forEach((evidence, index) => {
+      const row = element("li", "pattern-evidence-item");
+      row.append(element("strong", "", patternItemTitle(evidence, index)));
+      const detail = patternItemDetail(evidence);
+      if (detail) row.append(element("p", "", detail));
+      const metadata = patternItemMetadata(evidence);
+      if (metadata) row.append(element("span", "", metadata));
+      const reference = safeText(
+        evidence?.reference ?? evidence?.evidence_reference ?? evidence?.url ?? evidence?.record_id,
+        "",
+      );
+      if (reference) row.append(element("code", "", reference));
+      list.append(row);
+    });
+    container.append(list);
+  }
+
   function renderPatterns() {
     const container = $("#pattern-list");
     container.replaceChildren();
@@ -698,9 +904,41 @@
       const label = safeText(item.label ?? item.name ?? item.field ?? item.group ?? item.type, `Pattern ${index + 1}`);
       const count = item.count ?? item.observation_count ?? item.total ?? item.value;
       const detail = safeText(item.description ?? item.summary ?? item.detail ?? item.pattern, "Observed company-memory pattern");
-      article.append(element("h3", "", label));
-      article.append(element("strong", "", safeText(count, "OBSERVED")));
-      article.append(element("p", "", detail));
+      const key = patternKey(item, index);
+      const items = patternItems(item);
+      const detailId = `pattern-detail-${index + 1}`;
+      const expanded = view.expandedPatternKey === key;
+      article.dataset.patternKey = key;
+      article.classList.toggle("expanded", expanded);
+
+      const trigger = element("button", "pattern-trigger");
+      trigger.type = "button";
+      trigger.dataset.patternKey = key;
+      trigger.setAttribute("aria-expanded", String(expanded));
+      trigger.setAttribute("aria-controls", detailId);
+      trigger.append(element("span", "pattern-name", label));
+      trigger.append(element("strong", "pattern-count", safeText(count, "OBSERVED")));
+      trigger.append(element("span", "pattern-summary", detail));
+      const cueText = items.length
+        ? `${expanded ? "Hide" : "View"} ${items.length} underlying item${items.length === 1 ? "" : "s"}`
+        : `${expanded ? "Hide" : "View"} pattern details`;
+      trigger.append(element("span", "pattern-cue", `${cueText} ${expanded ? "↑" : "↓"}`));
+      trigger.addEventListener("click", () => {
+        view.expandedPatternKey = expanded ? null : key;
+        renderPatterns();
+        window.requestAnimationFrame(() => {
+          const activeTrigger = $$(".pattern-trigger").find((button) => button.dataset.patternKey === key);
+          activeTrigger?.focus({ preventScroll: true });
+          activeTrigger?.closest(".pattern-item")?.scrollIntoView({ block: "nearest" });
+        });
+      });
+
+      const evidence = element("section", "pattern-detail");
+      evidence.id = detailId;
+      evidence.hidden = !expanded;
+      evidence.setAttribute("aria-label", `Underlying items for ${label}`);
+      renderPatternEvidence(evidence, item, items, label);
+      article.append(trigger, evidence);
       container.append(article);
     });
   }
@@ -980,6 +1218,7 @@
   function renderAll() {
     if (!view.state) return;
     renderHeader();
+    renderConnectivity();
     renderTotals();
     renderQueue();
     renderSelected();
@@ -1029,15 +1268,42 @@
     return payload;
   }
 
-  async function selectCase(id, button) {
+  function setQueueFilter(filter, { moveFocus = false } = {}) {
+    const normalized = safeText(filter, "REVIEW").toUpperCase();
+    if (!["ALL", "ALLOW", "REVIEW", "BLOCK"].includes(normalized)) return;
+    view.activeFilter = normalized;
+    renderQueue();
+
+    const queue = $("#case-queue");
+    queue.classList.remove("queue-updated");
+    void queue.offsetWidth;
+    queue.classList.add("queue-updated");
+    queue.scrollTop = 0;
+    if (moveFocus) {
+      window.requestAnimationFrame(() => {
+        const firstCase = $(".case-row", queue);
+        if (firstCase) firstCase.focus({ preventScroll: true });
+        else queue.focus({ preventScroll: true });
+      });
+    }
+  }
+
+  async function selectCase(id) {
     if (!id || id === "UNASSIGNED") return;
+    const item = view.state?.cases.find((candidate) => caseId(candidate) === id);
+    if (!item) return;
     view.selectedCaseId = id;
-    $$(".case-row").forEach((row) => row.classList.toggle("selected", row === button));
+    view.caseDialogReturnCaseId = id;
+    view.state.selected = item;
+    renderQueue();
+    renderSelected();
+    showDialog("case-dialog");
     try {
       await mutate("/api/select", { case_id: id });
+      if ($("#case-dialog")?.open) renderCaseDialog();
       clearGlobalError();
     } catch (error) {
-      showGlobalError(`Could not select ${id}. ${errorMessage(error)}`);
+      showGlobalError(`Opened local details for ${id}, but the server could not remember the selection. ${errorMessage(error)}`);
       renderQueue();
     }
   }
@@ -1049,10 +1315,12 @@
       const status = safeText(payload?.status ?? payload?.health, "ok");
       $("#engine-status").textContent = `ENGINE ${status.toUpperCase()}`;
       $("#health-detail").textContent = status;
+      renderConnectivity();
     } catch (error) {
       view.health = { status: "unavailable" };
       $("#engine-status").textContent = "ENGINE UNAVAILABLE";
       $("#health-detail").textContent = "Unavailable";
+      renderConnectivity();
       if (reportError) showGlobalError(`Health check failed. ${errorMessage(error)}`);
     }
   }
@@ -1097,6 +1365,38 @@
     container.append(block);
   }
 
+  function appendCaseEvidence(container, evidence) {
+    const items = Array.isArray(evidence) ? evidence : [evidence];
+    const block = element("section", "receipt-block case-evidence-block");
+    block.append(element("h3", "", `Evidence trace · ${items.length} item${items.length === 1 ? "" : "s"}`));
+    const list = element("ol", "case-evidence-list");
+    items.forEach((value, index) => {
+      const item = value && typeof value === "object" ? value : { value };
+      const row = element("li");
+      row.append(element(
+        "strong",
+        "",
+        safeText(item.event_id ?? item.evidence_id ?? item.title ?? item.source_name, `Evidence ${index + 1}`),
+      ));
+      const summary = [
+        item.value,
+        item.status,
+        item.observed_at,
+      ].map((entry) => safeText(entry, "")).filter(Boolean).join(" · ");
+      if (summary) row.append(element("p", "", summary));
+      const source = [item.source_name, item.source_type]
+        .map((entry) => safeText(entry, ""))
+        .filter(Boolean)
+        .join(" · ");
+      if (source) row.append(element("span", "", source));
+      const reference = safeText(item.reference ?? item.evidence_reference ?? item.url, "");
+      if (reference) row.append(element("code", "", reference));
+      list.append(row);
+    });
+    block.append(list);
+    container.append(block);
+  }
+
   function renderCaseDialog() {
     const item = selectedCase();
     const container = $("#case-detail-content");
@@ -1128,7 +1428,7 @@
     appendReceiptBlock(container, "Why", caseSummary(item));
 
     const evidence = item.evidence ?? item.events ?? item.evidence_refs;
-    if (evidence) appendReceiptBlock(container, "Evidence trace", safeText(evidence));
+    if (evidence) appendCaseEvidence(container, evidence);
     const rules = item.rules ?? item.rule_ids ?? item.failed_rules;
     if (rules) appendReceiptBlock(container, "Rules", safeText(rules));
 
@@ -1252,6 +1552,93 @@
     return websites + mailboxes;
   }
 
+  function browserNetworkLabel() {
+    try {
+      return CONNECTIVITY.networkLabel(
+        typeof navigator === "object" && typeof navigator.onLine === "boolean"
+          ? navigator.onLine
+          : null,
+      );
+    } catch {
+      return CONNECTIVITY.networkLabel(null);
+    }
+  }
+
+  function sourceCadenceLabel() {
+    return CONNECTIVITY.cadenceLabel(
+      view.state?.company?.auto_monitor_enabled,
+      view.state?.company?.auto_monitor_minutes,
+    );
+  }
+
+  function connectivityTime(value) {
+    if (!(value instanceof Date) || Number.isNaN(value.getTime())) return "";
+    return new Intl.DateTimeFormat(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(value);
+  }
+
+  function latestRecordedSourceCheck() {
+    const timestamps = (view.state?.website_sources ?? [])
+      .map((source) => source?.last_scan_at)
+      .concat(
+        ["google", "microsoft"].flatMap((provider) =>
+          connectorAccounts(provider).map((account) => account?.last_scan_at ?? account?.scanned_at),
+        ),
+      )
+      .filter((value) => value !== null && value !== undefined && value !== "")
+      .map((value) => new Date(value))
+      .filter((value) => !Number.isNaN(value.getTime()));
+    if (!timestamps.length) return null;
+    return new Date(Math.max(...timestamps.map((value) => value.getTime())));
+  }
+
+  function renderConnectivity() {
+    const chip = $("#connectivity-chip");
+    if (!chip) return;
+    const network = browserNetworkLabel();
+    const cadence = sourceCadenceLabel();
+    $("#network-status").textContent = network;
+    $("#monitor-cadence").textContent = cadence;
+
+    const networkClass = network === "NETWORK ONLINE"
+      ? "online"
+      : network === "NETWORK OFFLINE"
+        ? "offline"
+        : "unknown";
+    chip.classList.remove("online", "offline", "unknown");
+    chip.classList.add(networkClass);
+    chip.setAttribute(
+      "aria-label",
+      `${network}. Source checks: ${cadence}. Browser and operating-system signal only; open for details.`,
+    );
+    chip.title = `${network} is a browser/OS signal, not a verified source probe. ${cadence} source checks run only while ContextGate is open.`;
+
+    const localStatus = safeText(view.health?.status ?? view.health?.health, "checking").toUpperCase();
+    $("#connectivity-engine-detail").textContent = `${localStatus} · local ContextGate API${localStatus === "OK" ? " answered" : " status"}`;
+    $("#connectivity-network-detail").textContent = network === "NETWORK ONLINE"
+      ? "ONLINE · Browser/OS reports a network route; website and provider reachability still require a successful scan."
+      : network === "NETWORK OFFLINE"
+        ? "OFFLINE · Browser/OS reports no network route; online source scans are expected to fail until it returns."
+        : "UNKNOWN · This browser does not expose a usable network-availability signal.";
+    $("#connectivity-cadence-detail").textContent = cadence === "MANUAL"
+      ? "MANUAL · Sources update only when an operator starts a scan."
+      : `${cadence} · automatic checks run only while this page and its local server remain open.`;
+
+    const recordedCheck = connectivityTime(latestRecordedSourceCheck());
+    let checkDetail = view.autoMonitorRunning
+      ? "Source check currently running."
+      : view.autoMonitorLastResult
+        || (recordedCheck
+          ? `Last recorded source scan: ${recordedCheck}.`
+          : "No source check has run in this browser session.");
+    const nextCheck = connectivityTime(view.autoMonitorNextCheckAt);
+    if (nextCheck) checkDetail = `${checkDetail} Next scheduled check: ${nextCheck}.`;
+    $("#connectivity-source-check-detail").textContent = checkDetail;
+  }
+
   function setAutoMonitorStatus(message, isError = false) {
     const status = $("#auto-monitor-status");
     if (!status) return;
@@ -1264,6 +1651,7 @@
       window.clearTimeout(view.autoMonitorTimer);
       view.autoMonitorTimer = null;
     }
+    view.autoMonitorNextCheckAt = null;
   }
 
   function scheduleAutoMonitor() {
@@ -1271,11 +1659,13 @@
     if (!autoMonitorIsEnabled()) {
       setAutoMonitorStatus("Auto-monitor is off. Manual Scan buttons remain available.");
       $("#auto-monitor-now").disabled = true;
+      renderConnectivity();
       return;
     }
     $("#auto-monitor-now").disabled = view.autoMonitorRunning;
     const minutes = Math.min(1440, Math.max(1, Number(view.state?.company?.auto_monitor_minutes) || 15));
     const nextCheck = new Date(Date.now() + minutes * 60 * 1000);
+    view.autoMonitorNextCheckAt = nextCheck;
     const nextLabel = new Intl.DateTimeFormat(undefined, {
       hour: "numeric",
       minute: "2-digit",
@@ -1289,6 +1679,7 @@
       view.autoMonitorLastFailed,
     );
     view.autoMonitorTimer = window.setTimeout(() => runAutoMonitor(), minutes * 60 * 1000);
+    renderConnectivity();
   }
 
   async function runAutoMonitor({ manual = false } = {}) {
@@ -1297,6 +1688,7 @@
     stopAutoMonitorTimer();
     $("#auto-monitor-now").disabled = true;
     setAutoMonitorStatus("Checking configured websites and connected mailboxes…");
+    renderConnectivity();
     let latestState = view.state;
     let completed = 0;
     const failures = [];
@@ -1367,6 +1759,7 @@
         `${view.autoMonitorLastResult} Automatic checks are paused because the local server is unavailable. Restart it, then choose Check connected sources now.`,
         true,
       );
+      renderConnectivity();
       return;
     }
     scheduleAutoMonitor();
@@ -1440,25 +1833,93 @@
     }
   }
 
+  function oauthSetupElements(provider) {
+    const isGoogle = provider === "google";
+    return {
+      providerLabel: isGoogle ? "Google" : "Microsoft",
+      details: $(`#${isGoogle ? "google" : "microsoft"}-oauth-config`),
+      field: $(`#${isGoogle ? "google" : "microsoft"}-client-id`),
+      secondaryField: isGoogle ? $("#google-client-secret") : null,
+      statusId: `${isGoogle ? "google" : "microsoft"}-configure-status`,
+      steps: isGoogle
+        ? [
+          "Administrator: enable Gmail API, configure the audience and test users, then create a Desktop OAuth client.",
+          "Copy the client ID and client secret into the fields below and save the app registration once.",
+          "Mailbox user: select Connect Gmail, sign in at Google, and approve read-only access.",
+        ]
+        : [
+          "Administrator: register ContextGate in Microsoft Entra for organizational and personal Microsoft accounts.",
+          "Add the displayed localhost redirect and delegated User.Read plus Mail.Read permissions, then save its client ID below.",
+          "Mailbox user: select Connect Microsoft / Hotmail and approve read-only access at Microsoft.",
+        ],
+    };
+  }
+
+  function showOAuthSetupRequired(provider) {
+    const { providerLabel, details, field, secondaryField, statusId, steps } = oauthSetupElements(provider);
+    if (details) details.open = true;
+    const status = $(`#${statusId}`);
+    if (status) {
+      status.replaceChildren();
+      status.classList.add("error", "oauth-setup-guidance");
+      status.append(element("strong", "", `${providerLabel} app registration is missing on this installation.`));
+      status.append(element(
+        "p",
+        "",
+        `Every program that opens ${providerLabel} sign-in must first identify itself to the provider. Complete this administrator step once; mailbox users will then use the normal Connect button.`,
+      ));
+      const list = element("ol");
+      steps.forEach((step) => list.append(element("li", "", step)));
+      status.append(list);
+    }
+    if (field) field.setAttribute("aria-invalid", "true");
+    if (secondaryField) secondaryField.setAttribute("aria-invalid", "true");
+    setFormStatus(
+      "connector-action-status",
+      `${providerLabel} cannot open a valid sign-in request until this installation has a registered app identity. No blank sign-in window was opened.`,
+      true,
+    );
+    clearGlobalError();
+    window.requestAnimationFrame(() => {
+      details?.scrollIntoView({ block: "nearest" });
+      field?.focus({ preventScroll: true });
+    });
+  }
+
+  function closeAuthorizationWindow(authWindow) {
+    try {
+      if (authWindow && !authWindow.closed) authWindow.close();
+    } catch {
+      // The provider may have navigated the popup cross-origin before an API error surfaced.
+    }
+  }
+
   async function configureGoogle(event) {
     event.preventDefault();
     const form = event.currentTarget;
     const button = $("button[type='submit']", form);
-    const file = $("#google-client-json").files?.[0];
+    const clientId = $("#google-client-id").value.trim();
+    const clientSecret = $("#google-client-secret").value.trim();
+    $("#google-client-id").removeAttribute("aria-invalid");
+    $("#google-client-secret").removeAttribute("aria-invalid");
     setFormStatus("google-configure-status");
-    if (!file) {
-      setFormStatus("google-configure-status", "Choose the OAuth client JSON file first.", true);
+    if (!clientId || !clientSecret) {
+      showOAuthSetupRequired("google");
       return;
     }
-    if (file.size > 32 * 1024) {
-      setFormStatus("google-configure-status", "The OAuth client JSON file is larger than 32 KB.", true);
+    if (!clientId.endsWith(".apps.googleusercontent.com")) {
+      $("#google-client-id").setAttribute("aria-invalid", "true");
+      setFormStatus("google-configure-status", "Use the client ID from a Google OAuth Desktop app; it normally ends in .apps.googleusercontent.com.", true);
       return;
     }
     setButtonBusy(button, true, "Saving…");
     try {
-      await mutate("/api/connectors/google/configure", { client_json_base64: await fileToBase64(file) });
+      await mutate("/api/connectors/google/configure", {
+        client_id: clientId,
+        client_secret: clientSecret,
+      });
       form.reset();
-      setFormStatus("google-configure-status", "Google OAuth configuration accepted by the local API. Use Add Google account to authorize an account.");
+      setFormStatus("google-configure-status", "Google app registration saved on this installation. Select Connect Gmail; Google's real sign-in page will open directly.");
       clearGlobalError();
     } catch (error) {
       const message = errorMessage(error);
@@ -1469,17 +1930,55 @@
     }
   }
 
+  async function configureGoogleJson(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = $("button[type='submit']", form);
+    const file = $("#google-client-json").files?.[0];
+    $("#google-client-json").removeAttribute("aria-invalid");
+    setFormStatus("google-configure-status");
+    if (!file) {
+      $("#google-client-json").setAttribute("aria-invalid", "true");
+      setFormStatus("google-configure-status", "Choose the JSON downloaded from a Google OAuth Desktop app.", true);
+      return;
+    }
+    if (file.size > 32 * 1024) {
+      setFormStatus("google-configure-status", "The Google Desktop JSON is larger than 32 KB.", true);
+      return;
+    }
+    setButtonBusy(button, true, "Saving…");
+    try {
+      await mutate("/api/connectors/google/configure", {
+        client_json_base64: await fileToBase64(file),
+      });
+      form.reset();
+      setFormStatus("google-configure-status", "Google app registration saved on this installation. Select Connect Gmail; Google's real sign-in page will open directly.");
+      clearGlobalError();
+    } catch (error) {
+      const message = errorMessage(error);
+      setFormStatus("google-configure-status", message, true);
+      showGlobalError(`Google app registration was not saved. ${message}`);
+    } finally {
+      setButtonBusy(button, false);
+    }
+  }
+
   async function configureMicrosoft(event) {
     event.preventDefault();
     const form = event.currentTarget;
     const button = $("button[type='submit']", form);
     const clientId = $("#microsoft-client-id").value.trim();
-    setButtonBusy(button, true, "Saving…");
+    $("#microsoft-client-id").removeAttribute("aria-invalid");
     setFormStatus("microsoft-configure-status");
+    if (!clientId) {
+      showOAuthSetupRequired("microsoft");
+      return;
+    }
+    setButtonBusy(button, true, "Saving…");
     try {
       await mutate("/api/connectors/microsoft/configure", { client_id: clientId });
       form.reset();
-      setFormStatus("microsoft-configure-status", "Microsoft OAuth configuration accepted by the local API. Use Add Microsoft account to authorize an account.");
+      setFormStatus("microsoft-configure-status", "Microsoft app registration saved on this installation. Select Connect Microsoft / Hotmail; Microsoft's real sign-in page will open directly.");
       clearGlobalError();
     } catch (error) {
       const message = errorMessage(error);
@@ -1491,29 +1990,32 @@
   }
 
   async function startConnector(provider, button) {
-    const providerLabel = provider === "google" ? "Google" : "Microsoft";
-    const authWindow = window.open("about:blank", `contextgate-${provider}-oauth`);
-    if (authWindow) {
-      authWindow.opener = null;
-      authWindow.document.title = `Opening ${providerLabel} authorization…`;
-      authWindow.document.body.textContent = `Waiting for the local ContextGate API to start ${providerLabel} authorization…`;
+    const providerLabel = provider === "google" ? "Gmail" : "Microsoft / Hotmail";
+    if (!connectorIsConfigured(provider)) {
+      showOAuthSetupRequired(provider);
+      return;
     }
+
+    let authWindow = null;
     setButtonBusy(button, true, "Starting…");
     setFormStatus("connector-action-status", `Starting ${providerLabel} authorization…`);
     try {
+      authWindow = window.open("about:blank", `contextgate-${provider}-oauth`);
+      if (!authWindow) {
+        throw new Error("The browser blocked the authorization window. Allow pop-ups for this local app and try again.");
+      }
+      authWindow.opener = null;
+      authWindow.document.title = `Opening ${providerLabel} authorization…`;
+      authWindow.document.body.textContent = `Waiting for the local ContextGate API to start ${providerLabel} authorization…`;
       const payload = await apiRequest(`/api/connectors/${provider}/start`, { method: "POST", body: {} });
       const authorizationUrl = safeText(payload?.authorization_url, "");
       const parsedUrl = new URL(authorizationUrl);
       if (!["https:", "http:"].includes(parsedUrl.protocol)) throw new Error("The connector API returned an invalid authorization URL.");
-      if (authWindow) {
-        authWindow.location.replace(parsedUrl.href);
-      } else {
-        throw new Error("The browser blocked the authorization window. Allow pop-ups for this local app and try again.");
-      }
+      authWindow.location.replace(parsedUrl.href);
       setFormStatus("connector-action-status", `${providerLabel} authorization opened in a new window. Return here and refresh after completing it.`);
       clearGlobalError();
     } catch (error) {
-      authWindow?.close();
+      closeAuthorizationWindow(authWindow);
       const message = errorMessage(error);
       setFormStatus("connector-action-status", message, true);
       showGlobalError(`${providerLabel} authorization did not start. ${message}`);
@@ -1907,18 +2409,24 @@
         if (event.target === dialog) dialog.close();
       });
     });
+    $("#case-dialog").addEventListener("close", () => {
+      const returnId = view.caseDialogReturnCaseId;
+      view.caseDialogReturnCaseId = null;
+      if (!returnId) return;
+      window.requestAnimationFrame(() => {
+        const returnRow = $$(".case-row").find((row) => row.dataset.caseId === returnId);
+        returnRow?.focus({ preventScroll: true });
+      });
+    });
     $("#open-case-details").addEventListener("click", () => showDialog("case-dialog"));
   }
 
   function bindQueueFilters() {
     $$('[data-queue-filter]').forEach((button) => {
-      button.addEventListener("click", () => {
-        view.activeFilter = button.dataset.queueFilter;
-        $$('[data-queue-filter]').forEach((filterButton) => {
-          filterButton.setAttribute("aria-pressed", String(filterButton === button));
-        });
-        renderQueue();
-      });
+      button.addEventListener("click", () => setQueueFilter(button.dataset.queueFilter, { moveFocus: true }));
+    });
+    $$('[data-kpi-filter]').forEach((button) => {
+      button.addEventListener("click", () => setQueueFilter(button.dataset.kpiFilter, { moveFocus: true }));
     });
   }
 
@@ -2115,6 +2623,7 @@
     });
 
     $("#google-configure-form").addEventListener("submit", configureGoogle);
+    $("#google-json-configure-form").addEventListener("submit", configureGoogleJson);
     $("#microsoft-configure-form").addEventListener("submit", configureMicrosoft);
     $("#website-source-form").addEventListener("submit", addWebsiteSource);
     $("#layout-form").addEventListener("submit", (event) => {
@@ -2265,6 +2774,8 @@
   let resizeFrame = 0;
 
   window.addEventListener("DOMContentLoaded", start, { once: true });
+  window.addEventListener("online", renderConnectivity);
+  window.addEventListener("offline", renderConnectivity);
   window.addEventListener("pagehide", stopAutoMonitorTimer);
   window.addEventListener("pageshow", (event) => {
     if (event.persisted) scheduleAutoMonitor();

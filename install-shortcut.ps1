@@ -76,6 +76,22 @@ $KitSources = @(
         Name = "07-sales-intelligence.png"
     },
     @{
+        Source = Join-Path $ProjectRoot "docs\screenshots\08-grounded-eventbrite-chat.png"
+        Name = "08-grounded-eventbrite-chat.png"
+    },
+    @{
+        Source = Join-Path $ProjectRoot "docs\screenshots\09-eventbrite-pattern-drilldown.png"
+        Name = "09-eventbrite-pattern-drilldown.png"
+    },
+    @{
+        Source = Join-Path $ProjectRoot "docs\screenshots\10-email-oauth-guidance.png"
+        Name = "10-email-oauth-guidance.png"
+    },
+    @{
+        Source = Join-Path $ProjectRoot "docs\pitch-deck\ContextGate-Hackathon-Pitch-Deck.pptx"
+        Name = "ContextGate Hackathon Pitch Deck.pptx"
+    },
+    @{
         Source = Join-Path $ProjectRoot "docs\demo_script.md"
         Name = "Presentation Script.md"
     },

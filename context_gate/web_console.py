@@ -81,6 +81,7 @@ MAX_JSON_BODY = ((MAX_ARTIFACT_BYTES + 2) // 3) * 4 + 128 * 1024
 MAX_CHAT_CHARS = 2_000
 MAX_HISTORY = 16
 MAX_LOGO_BYTES = 1 * 1024 * 1024
+MAX_OAUTH_CLIENT_CONFIG_BYTES = 32 * 1024
 ALLOWED_HOSTS: Final = {"127.0.0.1:8501", "localhost:8501"}
 WELCOME_CHAT_TEXT: Final = (
     "I'm ready. Ask me what needs attention, why something was blocked, "
@@ -90,6 +91,63 @@ WELCOME_CHAT_TEXT: Final = (
 
 class ConsoleError(ValueError):
     """Safe error suitable for a local JSON response."""
+
+
+def _load_local_oauth_clients(path: Path) -> dict[str, Any]:
+    """Read installation-owned provider identities without exposing them to state."""
+
+    if not path.exists() and not path.is_symlink():
+        return {"version": 1}
+    try:
+        if path.is_symlink() or not path.is_file():
+            raise ConsoleError("Local OAuth client configuration path is not safe.")
+        if path.stat().st_size > MAX_OAUTH_CLIENT_CONFIG_BYTES:
+            raise ConsoleError("Local OAuth client configuration is too large.")
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except ConsoleError:
+        raise
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        raise ConsoleError("Local OAuth client configuration is invalid.") from None
+    if not isinstance(payload, dict) or payload.get("version", 1) != 1:
+        raise ConsoleError("Local OAuth client configuration is invalid.")
+    return payload
+
+
+def _save_local_oauth_clients(path: Path, payload: dict[str, Any]) -> None:
+    """Atomically save provider app identities; mailbox tokens are never included."""
+
+    encoded = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+    if len(encoded) > MAX_OAUTH_CLIENT_CONFIG_BYTES:
+        raise ConsoleError("Local OAuth client configuration is too large.")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists() and path.is_symlink():
+            raise ConsoleError("Local OAuth client configuration path is not safe.")
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=".oauth-clients-", suffix=".tmp", dir=path.parent
+        )
+        try:
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(encoded)
+                stream.flush()
+                os.fsync(stream.fileno())
+            try:
+                os.chmod(temporary_name, 0o600)
+            except OSError:
+                pass
+            os.replace(temporary_name, path)
+        except Exception:
+            try:
+                os.unlink(temporary_name)
+            except OSError:
+                pass
+            raise
+    except ConsoleError:
+        raise
+    except OSError:
+        raise ConsoleError(
+            "Local OAuth client configuration could not be saved."
+        ) from None
 
 
 def _safe_text(value: object, *, label: str, minimum: int, maximum: int) -> str:
@@ -195,6 +253,7 @@ class ConsoleApplication:
     def __init__(self) -> None:
         RUNTIME_ROOT.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
+        self.oauth_clients_path = RUNTIME_ROOT / "oauth_clients.json"
         self.policy = get_active_policy()
         try:
             self.profile = load_company_profile(PROFILE_PATH)
@@ -204,6 +263,25 @@ class ConsoleApplication:
             self.profile_error = str(exc)
         self.learning = OperatorLearningStore(MEMORY_PATH)
         self.oauth = EmailOAuthManager()
+        self.oauth_setup_error: str | None = None
+        try:
+            local_oauth = _load_local_oauth_clients(self.oauth_clients_path)
+            google = local_oauth.get("google")
+            if not os.environ.get("CONTEXTGATE_GOOGLE_CLIENT_ID") and isinstance(
+                google, dict
+            ):
+                self.oauth.configure_google_credentials(
+                    str(google.get("client_id", "")),
+                    client_secret=str(google.get("client_secret", "")),
+                    redirect_host=str(google.get("redirect_host", "127.0.0.1")),
+                )
+            microsoft = local_oauth.get("microsoft")
+            if not os.environ.get("CONTEXTGATE_MICROSOFT_CLIENT_ID") and isinstance(
+                microsoft, dict
+            ):
+                self.oauth.configure_microsoft(str(microsoft.get("client_id", "")))
+        except (ConsoleError, EmailConnectorError) as exc:
+            self.oauth_setup_error = str(exc)
         try:
             self.websites: WebsiteSourceRegistry | None = WebsiteSourceRegistry(
                 WEBSITE_SOURCES_PATH
@@ -416,8 +494,32 @@ class ConsoleApplication:
                 if catalog_summary.get("fictional")
                 else "Currently scanned sources"
             )
+            pattern_event_items = [
+                {
+                    "title": item.get("title"),
+                    "source": item.get("source_name"),
+                    "location": item.get("location"),
+                    "date": item.get("date"),
+                    "time": item.get("time"),
+                    "address": item.get("address"),
+                    "reference": item.get("evidence_reference"),
+                    "fictional": item.get("fictional", False),
+                }
+                for item in calendar_events
+            ]
+            eventbrite_pattern_items = [
+                item
+                for item in pattern_event_items
+                if str(item.get("source", "")).casefold() == "eventbrite"
+            ]
+            nyc_pattern_items = [
+                item
+                for item in pattern_event_items
+                if str(item.get("location", "")).casefold() == "new york city"
+            ]
             patterns = [
                 {
+                    "pattern_id": "distinct-events",
                     "label": "Distinct events",
                     "count": catalog_summary.get("distinct_events", 0),
                     "description": (
@@ -425,8 +527,11 @@ class ConsoleApplication:
                         f"scanned · {catalog_summary.get('duplicate_updates', 0)} "
                         f"duplicate/update excluded · {demo_label}"
                     ),
+                    "detail_label": "Distinct events behind this total",
+                    "items": pattern_event_items,
                 },
                 {
+                    "pattern_id": "eventbrite-events",
                     "label": "Eventbrite events",
                     "count": (
                         source_counts.get("Eventbrite", 0)
@@ -434,8 +539,11 @@ class ConsoleApplication:
                         else 0
                     ),
                     "description": "Distinct events after update-message deduplication.",
+                    "detail_label": "Eventbrite events behind this total",
+                    "items": eventbrite_pattern_items,
                 },
                 {
+                    "pattern_id": "new-york-city-events",
                     "label": "New York City events",
                     "count": (
                         location_counts.get("New York City", 0)
@@ -446,32 +554,79 @@ class ConsoleApplication:
                         "Includes Manhattan, Brooklyn, Queens, the Bronx, and "
                         "Staten Island aliases."
                     ),
+                    "detail_label": "New York City events behind this total",
+                    "items": nyc_pattern_items,
                 },
             ]
             if catalog_summary.get("fictional"):
                 patterns.extend(
                     [
                         {
+                            "pattern_id": "address-recurrence",
                             "label": "Address recurrence",
                             "count": "8 vs 3",
                             "description": (
                                 "Fictional memory: 8 events at 76 New Avenue versus "
                                 "3 at 35 Main Street; a suite change is held for review."
                             ),
+                            "detail_label": "Evidence behind this address pattern",
+                            "items": [
+                                {
+                                    "title": "76 New Avenue · Suite 232",
+                                    "detail": "8 fictional observations support this recurring address and suite.",
+                                    "reference": "fictional-memory://76-new-avenue/suite-232",
+                                    "fictional": True,
+                                },
+                                {
+                                    "title": "35 Main Street",
+                                    "detail": "3 fictional observations support this recurring address.",
+                                    "reference": "fictional-memory://35-main-street",
+                                    "fictional": True,
+                                },
+                                {
+                                    "title": "76 New Avenue · Suite 354",
+                                    "detail": "New conflicting suite; held for human confirmation instead of silently merged.",
+                                    "reference": "fictional-memory://76-new-avenue/suite-354-review",
+                                    "fictional": True,
+                                },
+                            ],
                         },
                         {
+                            "pattern_id": "crowd-size-update",
                             "label": "Crowd-size update",
                             "count": 113,
                             "description": (
                                 "Fictional trace: 35 confirmed + ‘78 more’ = 113; "
                                 "total wording would replace instead of add."
                             ),
+                            "detail_label": "Calculation and source trace",
+                            "items": [
+                                {
+                                    "title": "Baseline · 35 confirmed",
+                                    "detail": "Starting total for the same fictional event identity.",
+                                    "reference": "fictional-email://crowd-baseline-35",
+                                    "fictional": True,
+                                },
+                                {
+                                    "title": "Update · 78 more",
+                                    "detail": "The word ‘more’ is interpreted as a delta after matching the event.",
+                                    "reference": "fictional-email://crowd-delta-78",
+                                    "fictional": True,
+                                },
+                                {
+                                    "title": "Resolved total · 113",
+                                    "detail": "35 + 78 = 113. Wording such as ‘78 are going’ would replace the total instead.",
+                                    "reference": "calculation://crowd-size/35-plus-78",
+                                    "fictional": True,
+                                },
+                            ],
                         },
                     ]
                 )
             patterns.extend(
                 [
                     {
+                        "pattern_id": "hidden-source-rules",
                         "label": "Hidden source rules",
                         "count": len(self.profile.hidden_sources),
                         "description": (
@@ -479,8 +634,18 @@ class ConsoleApplication:
                             if self.profile.hidden_sources
                             else "No sources are hidden."
                         ),
+                        "detail_label": "Hidden sources",
+                        "items": [
+                            {
+                                "title": item,
+                                "detail": "Saved locally and excluded from visible counts, patterns, and answers.",
+                                "reference": f"profile:hidden-source:{item.casefold()}",
+                            }
+                            for item in self.profile.hidden_sources
+                        ],
                     },
                     {
+                        "pattern_id": "deleted-source-exclusions",
                         "label": "Deleted source exclusions",
                         "count": len(self.profile.deleted_sources),
                         "description": (
@@ -488,6 +653,15 @@ class ConsoleApplication:
                             if self.profile.deleted_sources
                             else "No source deletion exclusions are active."
                         ),
+                        "detail_label": "Deleted-source exclusions",
+                        "items": [
+                            {
+                                "title": item,
+                                "detail": "Content was deleted; this content-free exclusion prevents silent re-import.",
+                                "reference": f"profile:deleted-source:{item.casefold()}",
+                            }
+                            for item in self.profile.deleted_sources
+                        ],
                     },
                 ]
             )
@@ -960,6 +1134,20 @@ class ConsoleApplication:
             raise ConsoleError("Save-guidance choice is invalid.")
 
         normalized = re.sub(r"[^a-z0-9]+", " ", question.casefold()).strip()
+        asks_selected_case_explanation = bool(
+            re.search(r"\b(?:this|selected|current) case\b", normalized)
+            and re.search(
+                r"\b(?:why|explain|review|attention|decision|outcome)\b",
+                normalized,
+            )
+        )
+        asks_pattern_summary = bool(
+            "pattern" in normalized
+            and re.search(
+                r"\b(?:what|which|show|list|explain|find|found)\b",
+                normalized,
+            )
+        )
         calendar_answer = self.catalog.answer_calendar_question(question)
         delete_mentioned = bool(
             re.search(
@@ -1046,6 +1234,7 @@ class ConsoleApplication:
             else self.catalog.answer_count_question(question)
         )
         tracking_answer = self.catalog.answer_tracking_question(question)
+        inventory_answer = self.catalog.answer_inventory_question(question)
         tracking_proposal = proposed_tracking_topic(question)
         correction_case_match = re.search(r"\b([abr]\d+)\b", normalized)
         correction_case_id = (
@@ -1123,6 +1312,7 @@ class ConsoleApplication:
                     metric_answer,
                     count_answer,
                     tracking_answer,
+                    inventory_answer,
                 )
             )
             else re.fullmatch(
@@ -1379,6 +1569,13 @@ class ConsoleApplication:
                 f"tracking-topic:{item.topic_id}"
                 for item in self._tracking_store().topics()
             ]
+            if inventory_answer is not None:
+                answer_text = f"{answer_text}\n\n{inventory_answer['text']}"
+                citations.extend(
+                    str(item["reference"])
+                    for item in inventory_answer["evidence"]
+                    if isinstance(item, dict) and item.get("reference")
+                )
         elif previous_tracking or switch_match is not None:
             try:
                 with self._lock:
@@ -1476,6 +1673,13 @@ class ConsoleApplication:
             # it as retractable company guidance even when the UI checkbox was
             # not selected; ordinary “show/list” questions remain transient.
             save_guidance = save_guidance or bool(tracking_answer["remember"])
+        elif inventory_answer is not None:
+            answer_text = str(inventory_answer["text"])
+            citations = [
+                str(item["reference"])
+                for item in inventory_answer["evidence"]
+                if isinstance(item, dict) and item.get("reference")
+            ][:12]
         elif upload_help:
             answer_text = (
                 "Local intake accepts UTF-8 text, Markdown, CSV, JSON, HTML, XML, "
@@ -1513,6 +1717,30 @@ class ConsoleApplication:
                 "and create local evidence-labeled reports and charts. I do not send "
                 "mail, publish files, approve actions, or invent missing evidence."
             )
+        elif asks_pattern_summary:
+            pattern_rows = self.state()["patterns"]
+            active_patterns = [
+                item
+                for item in pattern_rows
+                if str(item.get("count", "0")).strip() not in {"", "0", "0.0"}
+            ]
+            summaries = "; ".join(
+                f"{item['label']}: {item['count']} — {item['description']}"
+                for item in active_patterns
+            )
+            answer_text = (
+                f"I found {len(active_patterns)} active visible patterns: {summaries}. "
+                "Open Memory and select any pattern to see the individual evidence "
+                "behind its total; you can also ask me about one by name."
+            )
+            citations = list(
+                dict.fromkeys(
+                    str(detail["reference"])
+                    for item in active_patterns
+                    for detail in item.get("items", [])[:1]
+                    if isinstance(detail, dict) and detail.get("reference")
+                )
+            )[:12]
         elif bool(
             re.search(
                 r"\b(?:change|configure|edit|update) (?:what|the topics?) "
@@ -1627,7 +1855,12 @@ class ConsoleApplication:
             ]
         else:
             engine = GroundedChatEngine(policy=self.policy)
-            result = engine.answer(question, self.chat_history)
+            engine_question = (
+                f"Explain case {self.selected_case_id}."
+                if asks_selected_case_explanation
+                else question
+            )
+            result = engine.answer(engine_question, self.chat_history)
             answer_text = result.text
             citations = [
                 *(f"case:{item}" for item in result.case_ids),
@@ -1663,17 +1896,35 @@ class ConsoleApplication:
             )
 
         if save_guidance:
-            guidance_id = f"guidance-{uuid4()}"
-            guidance = OperatorGuidance(
-                tenant_id=TENANT_ID,
-                guidance_id=guidance_id,
-                origin=GuidanceOrigin.CHAT,
-                source_record_id=f"chat-{uuid4()}",
-                created_at=datetime.now(UTC),
-                guidance=question,
-                case_ids=[],
-            )
-            self.learning.append_guidance(guidance)
+            normalized_guidance = " ".join(question.split()).casefold()
+            try:
+                existing_guidance = next(
+                    (
+                        item
+                        for item in self.learning.list_active_guidance(
+                            TENANT_ID, limit=100
+                        )
+                        if " ".join(item.guidance.split()).casefold()
+                        == normalized_guidance
+                    ),
+                    None,
+                )
+            except OperatorLearningStoreError:
+                existing_guidance = None
+            if existing_guidance is not None:
+                guidance_id = existing_guidance.guidance_id
+            else:
+                guidance_id = f"guidance-{uuid4()}"
+                guidance = OperatorGuidance(
+                    tenant_id=TENANT_ID,
+                    guidance_id=guidance_id,
+                    origin=GuidanceOrigin.CHAT,
+                    source_record_id=f"chat-{uuid4()}",
+                    created_at=datetime.now(UTC),
+                    guidance=question,
+                    case_ids=[],
+                )
+                self.learning.append_guidance(guidance)
             citations.append(f"guidance:{guidance_id}")
             saved = True
 
@@ -1885,18 +2136,61 @@ class ConsoleApplication:
         return self.state()
 
     def configure_google(self, payload: dict[str, Any]) -> dict[str, Any]:
-        encoded = payload.get("client_json_base64")
-        if not isinstance(encoded, str) or len(encoded) > 64 * 1024:
-            raise ConsoleError("Choose a Google Desktop OAuth JSON file.")
-        try:
-            raw = base64.b64decode(encoded, validate=True)
-        except (ValueError, binascii.Error):
-            raise ConsoleError("Google client JSON encoding is invalid.") from None
-        self.oauth.configure_google_json(raw)
+        client_id = payload.get("client_id")
+        client_secret = payload.get("client_secret", "")
+        if isinstance(client_id, str) and client_id.strip():
+            if not isinstance(client_secret, str):
+                raise ConsoleError("Google client secret must be text.")
+            self.oauth.configure_google_credentials(
+                client_id,
+                client_secret=client_secret,
+            )
+            google_record = {
+                "client_id": client_id.strip(),
+                "client_secret": client_secret.strip(),
+                "redirect_host": "127.0.0.1",
+            }
+        else:
+            encoded = payload.get("client_json_base64")
+            if not isinstance(encoded, str) or len(encoded) > 64 * 1024:
+                raise ConsoleError(
+                    "Enter the Google Desktop client ID and client secret."
+                )
+            try:
+                raw = base64.b64decode(encoded, validate=True)
+            except (ValueError, binascii.Error):
+                raise ConsoleError("Google client JSON encoding is invalid.") from None
+            self.oauth.configure_google_json(raw)
+            try:
+                installed = json.loads(raw.decode("utf-8"))["installed"]
+                redirect_host = "127.0.0.1"
+                for candidate in installed.get("redirect_uris", []):
+                    parsed = urlparse(str(candidate))
+                    if parsed.hostname in {"127.0.0.1", "localhost"}:
+                        redirect_host = parsed.hostname
+                        break
+                google_record = {
+                    "client_id": str(installed["client_id"]).strip(),
+                    "client_secret": str(installed.get("client_secret", "")).strip(),
+                    "redirect_host": redirect_host,
+                }
+            except (KeyError, TypeError, UnicodeDecodeError, json.JSONDecodeError):
+                raise ConsoleError("Google client configuration is invalid.") from None
+        local_oauth = _load_local_oauth_clients(self.oauth_clients_path)
+        local_oauth["version"] = 1
+        local_oauth["google"] = google_record
+        _save_local_oauth_clients(self.oauth_clients_path, local_oauth)
+        self.oauth_setup_error = None
         return self.state()
 
     def configure_microsoft(self, payload: dict[str, Any]) -> dict[str, Any]:
-        self.oauth.configure_microsoft(str(payload.get("client_id", "")))
+        client_id = str(payload.get("client_id", ""))
+        self.oauth.configure_microsoft(client_id)
+        local_oauth = _load_local_oauth_clients(self.oauth_clients_path)
+        local_oauth["version"] = 1
+        local_oauth["microsoft"] = {"client_id": client_id.strip()}
+        _save_local_oauth_clients(self.oauth_clients_path, local_oauth)
+        self.oauth_setup_error = None
         return self.state()
 
     def start_oauth(self, provider: str, base_url: str) -> dict[str, str]:
@@ -2165,7 +2459,10 @@ class ContextGateRequestHandler(BaseHTTPRequestHandler):
                 "/api/connectors/microsoft/start",
             }:
                 provider = "google" if "/google/" in parsed.path else "microsoft"
-                base_url = f"http://127.0.0.1:{self.server.server_port}"
+                # Microsoft recommends localhost for native apps using the system
+                # browser.  Keep Google's desktop loopback on the IP literal.
+                loopback_host = "127.0.0.1" if provider == "google" else "localhost"
+                base_url = f"http://{loopback_host}:{self.server.server_port}"
                 self._json(self.application.start_oauth(provider, base_url))
                 return
             self._json({"error": "Not found."}, HTTPStatus.NOT_FOUND)

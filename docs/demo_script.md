@@ -41,7 +41,7 @@ Target length: **3 minutes 45 seconds**. The event records, locations, counts, s
 
 > A company can brand the workspace and its reports, then define what matters, how records match, and how cautious decisions should be. Kira Labs tracks crowd size under a safety-first policy, using fictional evidence. This display name is not authentication.
 
-**Point to:** **Add Google account** and **Add Microsoft account** in **Company setup**, if they are visible.
+**Point to:** **Connect Gmail** and **Connect Microsoft / Hotmail** in **Company setup**, if they are visible.
 
 **Say:**
 
@@ -120,6 +120,8 @@ Target length: **3 minutes 45 seconds**. The event records, locations, counts, s
 **Say:**
 
 > Companies lose time reconciling changing facts, duplicate updates, and risky exceptions. Confluent fits because that context changes continuously: Kafka is the replayable evidence spine, Flink deduplicates, handles event time, maintains authority, and evaluates conflicts. The gate emits ALLOW, REVIEW, or BLOCK before agent action. Then a Streaming Agent can explain the governed receipt, and human audit feedback can return to the stream.
+
+> This also matches today's workshop lesson about giving a model the relevant context it needs. ContextGate does not dump an inbox or every document into a prompt. It selects the records relevant to the question, removes duplicate updates, attaches source, authority, time, and conflict metadata, and hands the model a compact evidence packet with citations. It is the right context, with proof.
 
 ## 3:34–3:45 — Close
 
@@ -200,7 +202,7 @@ Say:
 
 **How does it prevent wrong totals and duplicates?** Every source item has a stable record ID and normalized event key, so an updated message can be retained as evidence without being counted as another event. In the fictional catalog, six Eventbrite messages resolve to five distinct Eventbrite events, and seven NYC messages resolve to six distinct NYC events. For quantities, exact entity keys prevent cross-event updates, while configured language distinguishes a delta such as “78 more” from a replacement total such as “78 are going”; the formula and contributors are shown.
 
-**How does Gmail or Hotmail login work?** The installation owner first registers a Google OAuth desktop app or Microsoft Entra public client. The user clicks **Connect**, signs in only on Google's or Microsoft's page, reviews read-only mail permissions, and returns through an authorization-code flow with PKCE and anti-forgery state. Typing an email address—or typing a password into ContextGate—never connects a mailbox.
+**How does Gmail or Hotmail login work?** The installation owner first registers a Google OAuth Desktop app or Microsoft Entra public client. Google can provide a downloaded JSON containing the client ID and secret; Microsoft provides an Application client ID instead. That one-time app identity is saved locally or injected by a secret manager. The user then clicks **Connect Gmail** or **Connect Microsoft / Hotmail**, signs in only on the provider's page, reviews read-only mail permissions, and returns through an authorization-code flow with PKCE and anti-forgery state. Typing an email address—or typing a password into ContextGate—never connects a mailbox. Provider verification for broad public distribution can take longer, so the judged demo does not claim a live mailbox is connected.
 
 **Are mailbox passwords or tokens stored?** ContextGate never asks for or stores mailbox passwords. In this local connector, access and refresh tokens exist only in process memory and disappear when the server stops. They are never written to Git, the audit log, chat, or screenshots. A production deployment would place refresh tokens and client secrets in an encrypted secret manager with rotation and revocation.
 
@@ -225,6 +227,8 @@ Say:
 **What can a reviewer export?** A chat request can create branded `.docx`, `.pdf`, and `.png` artifacts directly in `Documents/ContextGate Exports`; an explicit HTML request is also supported. The Export dialog additionally provides printable HTML, current data and receipts as JSON, dashboard SVG, browser print/PDF, and a human-reviewed email draft. ContextGate never silently sends mail, chooses a recipient, or executes an external action.
 
 **What makes ContextGate different from a chatbot or RAG application?** RAG helps a model find text; ContextGate governs whether changing evidence is strong enough for action. It combines event-time source authority, deterministic enforcement, human exceptions, and attributable receipts while placing AI explanation outside the safety boundary. It is a context firewall, not another answer box.
+
+**How does this apply the workshop idea of giving a model relevant context?** ContextGate first narrows the loaded evidence to records that match the user's question or tracked subject. It deduplicates updates, preserves source and event time, evaluates authority and conflicts, and creates a compact evidence packet containing the answerable facts and citations. The model receives that packet instead of a raw inbox or unbounded document dump, and human corrections remain attributable guidance for later answers.
 
 **What business value does that create?** It can reduce wrong updates, duplicate counts, manual reconciliation, exception investigation time, and audit effort. Relevant use cases include event capacity and venue changes, invoice and payment details, logistics addresses and delivery status, customer records, compliance approvals, and any agent that may write to another system. The demo proves the control pattern; it does not claim a measured dollar saving yet.
 

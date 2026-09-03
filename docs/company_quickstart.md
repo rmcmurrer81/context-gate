@@ -17,6 +17,13 @@ browser screen: evidence and patterns on the left, decisions in the center, and
 the always-available chat on the right. Choose **Layout** to put chat on the
 left, middle, or right and adjust the rail and chat widths.
 
+The compact connection pill distinguishes **NETWORK ONLINE/OFFLINE** (the
+browser/OS signal) from **ENGINE OK** (the local API answered) and shows
+**MANUAL** or **AUTO · N MIN** source-check cadence. The online signal is not a
+website or mailbox probe; actual reachability is established only by a
+successful scan. Automatic checks run only while this page and its local server
+remain open.
+
 The old Streamlit proof lab remains available as an optional advanced view:
 
 ```powershell
@@ -56,36 +63,88 @@ Each installation must first register its own provider application.
 
 ### Gmail / Google Workspace
 
-1. Create a Google Cloud project, enable the Gmail API, configure the OAuth
-   consent screen, and add test users if the app remains in testing.
-2. Create an OAuth client for a **Desktop app** and download its JSON file.
-3. In **Sources**, choose **Set up Gmail** and select that JSON file. ContextGate
-   extracts the public client configuration; do not select or paste a service
-   account key.
-4. Choose **Add Google account**, approve the read-only Gmail scope on Google's
-   page, then return to ContextGate.
+1. Open Google's [Gmail API page](https://console.cloud.google.com/apis/library/gmail.googleapis.com),
+   create or select a Google Cloud project, and enable the API.
+2. Open [Google Auth Platform audience](https://console.cloud.google.com/auth/audience),
+   configure the branding/audience, and add the Gmail addresses as test users
+   while the app remains in testing. Broader public distribution can require
+   Google's verification; do not promise same-day approval for that process.
+3. Open [Create OAuth client](https://console.cloud.google.com/auth/clients/create)
+   and select **Desktop app**. Google shows the client ID and client secret and
+   also offers a JSON download. Downloading that file is useful as an
+   administrator backup, but the current ContextGate screen does not make each
+   mailbox user upload it.
+4. Expand **Administrator setup** once, paste the Desktop client ID and client
+   secret, and save. ContextGate stores only this installation-level app
+   identity in the Git-ignored `runtime/oauth_clients.json` file.
+5. Choose **Connect Gmail**. From then on, the ordinary flow opens Google's
+   account picker and read-only consent page directly.
 
 Google's official references: [OAuth for installed apps](https://developers.google.com/identity/protocols/oauth2/native-app)
 and [Gmail API Python quickstart](https://developers.google.com/workspace/gmail/api/quickstart/python).
 
+For a managed deployment, set `CONTEXTGATE_GOOGLE_CLIENT_ID` and
+`CONTEXTGATE_GOOGLE_CLIENT_SECRET` through the deployment secret manager rather
+than using the local administrator form. Never use a service-account key for a
+person's Gmail mailbox.
+
 ### Outlook.com / Hotmail / Microsoft 365
 
-1. Register an application in Microsoft Entra ID. Allow personal Microsoft
-   accounts as well as work/school accounts if Hotmail/Outlook.com is required.
+1. Open [Microsoft Entra App registrations](https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade)
+   and register **ContextGate**. Allow personal Microsoft accounts as well as
+   work/school accounts if Hotmail/Outlook.com is required.
 2. Add the local redirect URI shown by ContextGate (normally
-   `http://127.0.0.1:8501/oauth/microsoft/callback`) and enable public-client
-   authorization-code flow.
-3. In **Sources**, choose **Set up Microsoft**, enter the application's public
-   client ID, then choose **Add Microsoft account**.
-4. Approve `User.Read` and read-only `Mail.Read` on Microsoft's page.
+   `http://localhost:8501/oauth/microsoft/callback`) as a mobile/desktop redirect
+   and enable public-client authorization-code flow.
+3. Add delegated `User.Read` and read-only `Mail.Read` permissions. Microsoft
+   provides an **Application (client) ID**, not the Google-style JSON file.
+4. Expand **Administrator setup** once, paste that client ID, and save it. A
+   managed deployment can instead inject `CONTEXTGATE_MICROSOFT_CLIENT_ID`.
+5. Choose **Connect Microsoft / Hotmail**, sign in on Microsoft's page, and
+   approve the read-only permissions.
 
-Microsoft's official references: [MSAL Python token acquisition](https://learn.microsoft.com/en-us/entra/msal/python/getting-started/acquiring-tokens)
+Microsoft's official references: [register a Microsoft Graph application](https://learn.microsoft.com/en-us/graph/auth-register-app-v2),
+[MSAL Python token acquisition](https://learn.microsoft.com/en-us/entra/msal/python/getting-started/acquiring-tokens),
 and [Microsoft Graph delegated authorization](https://learn.microsoft.com/en-us/graph/auth-v2-user).
+
+### If **Add account** does not open the provider sign-in
+
+Use this checklist before retrying:
+
+1. **Do not enter a mailbox password.** ContextGate never needs it, and an email
+   address by itself is not an OAuth client configuration.
+2. Confirm that the provider block says the app registration was saved. For
+   Google, paste the ID and secret from a **Desktop app** client—not a
+   service-account key. The optional downloaded JSON contains those same
+   values. For Microsoft, enter the Application (client) ID from Entra; there
+   is no equivalent JSON file.
+3. If the provider application is still in testing, add the mailbox owner as a
+   Google test user or select a Microsoft account audience that includes the
+   account type you intend to connect. Hotmail and Outlook.com require personal
+   Microsoft accounts to be allowed.
+4. Confirm the local callback is registered. ContextGate uses the loopback host
+   from Google's Desktop-app JSON and normally uses
+   `http://localhost:8501/oauth/microsoft/callback` for Microsoft.
+5. Allow pop-ups for `http://127.0.0.1:8501`, choose **Connect** again, and
+   complete consent only on the provider's HTTPS page.
+
+The command center now checks provider configuration before opening a sign-in
+window. If setup is missing, it keeps the user on the settings page, expands the
+correct configuration panel, focuses the required field, and shows the numbered
+steps instead of leaving an `about:blank` waiting tab. If an API or pop-up error
+occurs after a window opens, ContextGate closes that temporary window and shows
+the error locally.
+
+Never commit the downloaded Google JSON, the local `runtime/` folder, a client
+secret, access or refresh tokens, or mailbox content. Repository examples
+contain placeholders only; every installation supplies its own registered
+provider application.
 
 ContextGate can list, scan, and remove multiple authorized accounts. Access and
 refresh tokens stay in server memory for the current run and are never placed in
 the browser, profile file, logs, exported reports, or Git. Restarting the app
-requires reconnecting. Disconnect revokes Google access on a best-effort basis;
+requires reconnecting. The provider app identity persists locally so the user
+still returns to the one-click Connect flow after a restart. Disconnect revokes Google access on a best-effort basis;
 provider account settings remain the authoritative place to revoke consent.
 
 Scans can be started manually or by enabling **Auto-monitor while open** in

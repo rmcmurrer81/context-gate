@@ -78,6 +78,61 @@ def test_eventbright_typo_maps_to_eventbrite_in_questions_and_mail() -> None:
     assert scanned.summary()["duplicate_updates"] == 1
 
 
+def test_inventory_questions_return_bounded_grounded_catalog_summaries() -> None:
+    catalog = SourceCatalog()
+
+    for question in (
+        "What data are you collecting?",
+        "What are you tracking?",
+        "What sources/data do you have?",
+        "Tell me what source data you have.",
+    ):
+        answer = catalog.answer_inventory_question(question)
+
+        assert answer is not None
+        assert answer["query_kind"] == "catalog"
+        assert "10 visible source records" in str(answer["text"])
+        assert "9 distinct events" in str(answer["text"])
+        assert "By source: Eventbrite 5" in str(answer["text"])
+        assert "By location:" in str(answer["text"])
+        assert "AI Builders NYC" in str(answer["text"])
+        assert len(answer["evidence"]) == 6
+        assert all(item["reference"] for item in answer["evidence"])
+
+
+def test_eventbrite_inventory_question_accepts_typo_and_lists_actual_items() -> None:
+    catalog = SourceCatalog()
+
+    for question in (
+        "What did you get from Eventbrite?",
+        "What did you get from Eventbright?",
+        "What data have you collected from Eventbright?",
+        "Tell me what you have from Eventbrite.",
+    ):
+        answer = catalog.answer_inventory_question(question)
+
+        assert answer is not None
+        assert answer["query_kind"] == "eventbrite"
+        assert "5 distinct visible events" in str(answer["text"])
+        assert "6 source records" in str(answer["text"])
+        assert "AI Builders NYC" in str(answer["text"])
+        assert "Philadelphia Product Lab" in str(answer["text"])
+        assert "duplicate/update evidence" in str(answer["text"])
+        assert len(answer["evidence"]) == 5
+
+
+def test_inventory_intent_does_not_hijack_specific_questions_or_commands() -> None:
+    catalog = SourceCatalog()
+
+    for question in (
+        "What sources support case B1?",
+        "Why did Eventbrite conflict?",
+        "Delete Eventbrite data.",
+        "What are you tracking for Hanson Robotics?",
+    ):
+        assert catalog.answer_inventory_question(question) is None
+
+
 def test_count_question_handles_two_targets_without_silently_dropping_one() -> None:
     catalog = SourceCatalog()
 

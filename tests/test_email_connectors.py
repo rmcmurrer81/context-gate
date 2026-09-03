@@ -88,6 +88,23 @@ def test_provider_urls_use_local_callbacks_read_only_scopes_state_and_pkce() -> 
     assert microsoft["state"] != google["state"]
 
 
+def test_google_client_can_be_configured_without_a_json_upload() -> None:
+    manager = EmailOAuthManager()
+
+    manager.configure_google_credentials(
+        GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+    )
+
+    status = manager.status()["google"]
+    assert status["configured"] is True
+    authorization = _parameters(
+        manager.start_authorization("google", "http://127.0.0.1:8501")
+    )
+    assert authorization["client_id"] == GOOGLE_CLIENT_ID
+    assert GOOGLE_CLIENT_SECRET not in authorization.values()
+
+
 def test_google_callback_verifies_pkce_and_consumes_state_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

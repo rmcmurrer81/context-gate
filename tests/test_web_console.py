@@ -5,6 +5,7 @@ import io
 import json
 import threading
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
@@ -55,6 +56,45 @@ def console_app(
         app.close()
 
 
+def test_provider_app_registrations_persist_without_mailbox_tokens(
+    console_app: web_console.ConsoleApplication,
+) -> None:
+    google_client_id = "contextgate-demo.apps.googleusercontent.com"
+    google_client_secret = "fictional-local-app-secret"
+    microsoft_client_id = "12345678-1234-4234-9234-123456789012"
+
+    google_state = console_app.configure_google(
+        {
+            "client_id": google_client_id,
+            "client_secret": google_client_secret,
+        }
+    )
+    microsoft_state = console_app.configure_microsoft(
+        {"client_id": microsoft_client_id}
+    )
+
+    assert google_state["connectors"]["google"]["configured"] is True
+    assert microsoft_state["connectors"]["microsoft"]["configured"] is True
+    assert google_client_secret not in json.dumps(microsoft_state)
+    saved = console_app.oauth_clients_path.read_text(encoding="utf-8")
+    assert google_client_id in saved
+    assert microsoft_client_id in saved
+    assert "access_token" not in saved
+    assert "refresh_token" not in saved
+
+    console_app.close()
+    reloaded = web_console.ConsoleApplication()
+    try:
+        status = reloaded.state()["connectors"]
+        assert status["google"]["configured"] is True
+        assert status["microsoft"]["configured"] is True
+        assert status["google"]["connected"] is False
+        assert status["microsoft"]["connected"] is False
+        assert google_client_secret not in json.dumps(status)
+    finally:
+        reloaded.close()
+
+
 def test_one_screen_state_and_explainable_source_counts(
     console_app: web_console.ConsoleApplication,
 ) -> None:
@@ -85,6 +125,35 @@ def test_one_screen_state_and_explainable_source_counts(
     assert all(
         item["data_origin"] == "fictional_demo" for item in state["calendar"]["events"]
     )
+    patterns = {item["pattern_id"]: item for item in state["patterns"]}
+    assert len(patterns["distinct-events"]["items"]) == 9
+    assert len(patterns["eventbrite-events"]["items"]) == 5
+    assert {item["title"] for item in patterns["eventbrite-events"]["items"]} == {
+        "AI Builders NYC",
+        "Boston Robotics Forum",
+        "Brooklyn Data Night",
+        "Philadelphia Product Lab",
+        "Queens Tech Social",
+    }
+    assert len(patterns["new-york-city-events"]["items"]) == 6
+    assert all(item["reference"] for item in patterns["eventbrite-events"]["items"])
+
+    pattern_summary = console_app.chat(
+        {"message": "What patterns did you find?", "save_guidance": False}
+    )["answer"]
+    assert "5 active visible patterns" in pattern_summary["text"]
+    assert "Eventbrite events: 5" in pattern_summary["text"]
+    assert "Address recurrence: 8 vs 3" in pattern_summary["text"]
+    assert pattern_summary["citations"]
+
+    selected_explanation = console_app.chat(
+        {
+            "message": "Why does the selected case need review?",
+            "save_guidance": False,
+        }
+    )["answer"]
+    assert selected_explanation["text"].startswith("[case R1] Missing provenance")
+    assert "event:evt-105" in selected_explanation["citations"]
 
     eventbrite = console_app.chat(
         {"message": "How many events came from Eventbright?", "save_guidance": False}
@@ -109,6 +178,18 @@ def test_one_screen_state_and_explainable_source_counts(
     assert "429 11th Avenue" in tracked["answer"]["text"]
     assert "September 18, 2026" in tracked["answer"]["text"]
     assert tracked["state"]["guidance_count"] == 1
+
+    repeated_tracking = console_app.chat(
+        {
+            "message": "Keep track of events from Hanson Robotics.",
+            "save_guidance": False,
+        }
+    )
+    assert repeated_tracking["state"]["guidance_count"] == 1
+    assert any(
+        item.startswith("guidance:")
+        for item in repeated_tracking["answer"]["citations"]
+    )
 
 
 def test_demo_reset_restores_welcome_after_chat_history_rolls_over(
@@ -442,6 +523,51 @@ def test_chat_lists_bounded_events_and_sources_without_switching_topics(
     )
     assert "2 distinct matching events from Hanson Robotics" in hanson["answer"]["text"]
     assert len(hanson["answer"]["citations"]) == 2
+
+
+def test_chat_natural_inventory_questions_show_counts_items_and_citations(
+    console_app: web_console.ConsoleApplication,
+) -> None:
+    for question in (
+        "What data are you collecting?",
+        "What sources/data do you have?",
+        "What sources do you have?",
+    ):
+        answer = console_app.chat({"message": question, "save_guidance": False})[
+            "answer"
+        ]
+
+        assert "10 visible source records" in answer["text"]
+        assert "9 distinct events" in answer["text"]
+        assert "By source: Eventbrite 5" in answer["text"]
+        assert "Showing 6 items" in answer["text"]
+        assert len(answer["citations"]) == 6
+
+    tracking = console_app.chat(
+        {"message": "What are you tracking?", "save_guidance": False}
+    )["answer"]
+    assert "No named tracking topics are configured" in tracking["text"]
+    assert "10 visible source records" in tracking["text"]
+    assert "By source: Eventbrite 5" in tracking["text"]
+    assert len(tracking["citations"]) == 6
+
+
+def test_chat_eventbrite_inventory_handles_common_misspelling(
+    console_app: web_console.ConsoleApplication,
+) -> None:
+    for question in (
+        "What did you get from Eventbrite?",
+        "What did you get from Eventbright?",
+    ):
+        answer = console_app.chat({"message": question, "save_guidance": False})[
+            "answer"
+        ]
+
+        assert "From Eventbrite, I have 5 distinct visible events" in answer["text"]
+        assert "6 source records" in answer["text"]
+        assert "AI Builders NYC" in answer["text"]
+        assert "Philadelphia Product Lab" in answer["text"]
+        assert len(answer["citations"]) == 5
 
 
 def test_chat_help_setup_ingestion_and_monitoring_answers_are_truthful(
@@ -993,6 +1119,22 @@ def test_local_http_health_state_chat_and_origin_guard(
             answer = json.load(response)
         assert answer["answer"]["text"]
         assert answer["state"]["totals"]["total"] == 9
+
+        console_app.configure_microsoft(
+            {"client_id": "12345678-1234-4234-9234-123456789012"}
+        )
+        microsoft_start = urllib.request.Request(
+            f"{base}/api/connectors/microsoft/start",
+            data=b"{}",
+            headers={"Content-Type": "application/json", "Origin": base},
+            method="POST",
+        )
+        with urllib.request.urlopen(microsoft_start, timeout=5) as response:
+            authorization = json.load(response)["authorization_url"]
+        parameters = urllib.parse.parse_qs(urllib.parse.urlparse(authorization).query)
+        assert parameters["redirect_uri"] == [
+            f"http://localhost:{port}/oauth/microsoft/callback"
+        ]
 
         rejected = urllib.request.Request(
             f"{base}/api/select",
